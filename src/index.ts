@@ -79,7 +79,7 @@ export default {
         return dc.json({ type: dc.Reply.DEFERRED });
       }
 
-      case "grateful": {
+      case "gratitude": {
         const text = opt("text");
         if (!text) return empty("Nothing to record.");
 
@@ -147,14 +147,14 @@ export default {
  * The outbound half of the ported gratitude job.
  *
  * Hermes DM'd this prompt at 19:00 and wrote the reply into the journal. The
- * Worker can only do the outbound half — the reply comes back as `/grateful`.
+ * Worker can only do the outbound half — the reply comes back as `/gratitude`.
  * Keeping the nudge matters more than it looks: the entry is a month-old daily
  * habit, and a ritual that depends on remembering it unprompted is a ritual
  * that lapses.
  */
 const GRATITUDE_NUDGE =
   "🌙 What are you grateful for today?\n" +
-  "Reply with `/grateful <your answer>` and Arete will write back.";
+  "Reply with `/gratitude <your answer>` and Arete will write back.";
 
 /** The same inversion for the Sunday weekly reflection. */
 const REFLECT_NUDGE =

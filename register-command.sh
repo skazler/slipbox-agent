@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Register the /note and /grateful slash commands. Run once, and again only if a
+# Register the /note, /gratitude and /reflect slash commands. Run once, and again only if a
 # command's name or options change. Needs the bot token (not the webhook URL).
 #
 #   DISCORD_APP_ID=... DISCORD_BOT_TOKEN=... ./register-command.sh
@@ -39,7 +39,7 @@ register '{
 }' note
 
 register '{
-  "name": "grateful",
+  "name": "gratitude",
   "description": "Record today'"'"'s gratitude and get Arete'"'"'s reflection back",
   "options": [{
     "name": "text",
@@ -47,7 +47,7 @@ register '{
     "type": 3,
     "required": true
   }]
-}' grateful
+}' gratitude
 
 register '{
   "name": "reflect",
@@ -69,4 +69,4 @@ register '{
 }' reflect
 
 echo
-echo "done — try /note, /grateful or /reflect in Discord"
+echo "done — try /note, /gratitude or /reflect in Discord"
