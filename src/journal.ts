@@ -18,6 +18,17 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { readVault, writeFile, type Vault } from "./vault";
 
+/**
+ * Arete's voice is defined once and loaded ahead of every ritual's own prompt.
+ *
+ * It used to live inside `gratitude.md`, with `weekly-reflection.md` saying "the
+ * voice is the same, read that one" — which quietly made the gratitude prompt
+ * the voice definition and coupled the two rituals to each other. Splitting it
+ * means one file to change when the voice changes, and neither ritual depends
+ * on the other.
+ */
+const VOICE = "Systems/prompts/arete.md";
+
 const RITUALS = {
   gratitude: {
     file: "Journal/Gratitude.md",
@@ -38,9 +49,10 @@ export type Ritual = keyof typeof RITUALS;
 /** `[label, value]` — rendered as `**<label>:** <value>` in the entry. */
 export type Fields = [string, string][];
 
-const PROMPT_PATHS: readonly string[] = Object.values(RITUALS).map(
-  (r) => r.prompt,
-);
+const PROMPT_PATHS: readonly string[] = [
+  VOICE,
+  ...Object.values(RITUALS).map((r) => r.prompt),
+];
 
 /**
  * Reflections lean hard on history — they trace arcs across weeks ("June 28 you
@@ -118,6 +130,9 @@ export async function record(
   const spec = RITUALS[ritual];
   const vault = await readVault(env);
 
+  const voice = vault.get(VOICE);
+  if (!voice) throw new Error(`missing ${VOICE}`);
+
   const prompt = vault.get(spec.prompt);
   if (!prompt) throw new Error(`missing ${spec.prompt}`);
 
@@ -130,7 +145,7 @@ export async function record(
     .join("\n\n");
 
   const reflection = (
-    await generate(env, prompt, corpus(vault), date, written)
+    await generate(env, voice, prompt, corpus(vault), date, written)
   ).trim();
   if (!reflection) throw new Error("empty reflection");
 
@@ -151,6 +166,7 @@ export async function record(
 
 async function generate(
   env: JournalEnv,
+  voice: string,
   prompt: string,
   journalCorpus: string,
   date: string,
@@ -173,6 +189,9 @@ async function generate(
           `The journals and inbox follow — every past entry, so you can see ` +
           `what recurs and what today breaks.\n\n${journalCorpus}`,
       },
+      // Voice first, then the ritual's own rules — so a ritual can narrow or
+      // add to the voice, and the ordering makes clear which wins.
+      { type: "text", text: voice },
       { type: "text", text: prompt },
     ],
     output_config: { effort: "high" },
