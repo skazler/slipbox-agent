@@ -1,14 +1,13 @@
 /**
  * Discord transport.
  *
- * Notifications go out through a channel webhook. Capture comes in through an
- * Interactions endpoint — a Worker can't hold the persistent WebSocket a
- * Discord bot needs for DMs, so a `/note` slash command is the only inbound
- * path available to us.
+ * Notifications go out through channel webhooks — one per destination channel,
+ * chosen by the caller. Capture comes in through an Interactions endpoint — a
+ * Worker can't hold the persistent WebSocket a Discord bot needs for DMs, so a
+ * `/zettel` slash command is the only inbound path available to us.
  */
 
 export interface DiscordEnv {
-  DISCORD_WEBHOOK_URL: string;
   DISCORD_PUBLIC_KEY: string;
   DISCORD_USER_ID: string;
 }
@@ -17,15 +16,12 @@ export interface DiscordEnv {
 const MAX = 2000;
 
 /**
- * Outbound only, so it asks for the webhook and nothing else — jobs that never
- * handle an interaction shouldn't have to carry the verification keys just to
- * post a message.
+ * Takes the webhook URL rather than the env, because there is now more than one
+ * and the routing decision belongs to the caller — a job knows which channel it
+ * belongs in; the transport doesn't.
  */
-export async function send(
-  env: Pick<DiscordEnv, "DISCORD_WEBHOOK_URL">,
-  text: string,
-): Promise<void> {
-  const res = await fetch(env.DISCORD_WEBHOOK_URL, {
+export async function send(webhook: string, text: string): Promise<void> {
+  const res = await fetch(webhook, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

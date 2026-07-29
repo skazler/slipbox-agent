@@ -9,7 +9,10 @@ export interface Env {
   GITHUB_REPO: string;
   GITHUB_BRANCH: string;
   GITHUB_TOKEN: string;
-  DISCORD_WEBHOOK_URL: string;
+  // One webhook per destination channel. #learning carries everything
+  // reflective — the reviews and both journal nudges; #updates is news only.
+  DISCORD_WEBHOOK_LEARNING: string;
+  DISCORD_WEBHOOK_UPDATES: string;
   DISCORD_PUBLIC_KEY: string;
   DISCORD_USER_ID: string;
   TIMEZONE: string;
@@ -25,6 +28,11 @@ export interface Env {
   REFLECT_WEEKDAY: string;
   NEWS_HOUR: string;
   NEWS_MINUTE: string;
+  // The slipbox-note reminder fires twice a day, hence the pair.
+  ZETTEL_HOUR_1: string;
+  ZETTEL_MINUTE_1: string;
+  ZETTEL_HOUR_2: string;
+  ZETTEL_MINUTE_2: string;
 }
 
 const REVIEW = "Journal/Review.md";
@@ -32,7 +40,7 @@ const REVIEW = "Journal/Review.md";
 // ---------------------------------------------------------------- capture
 
 export default {
-  /** Discord Interactions endpoint. `/note <text>` appends to today's inbox. */
+  /** Discord Interactions endpoint. `/zettel <text>` appends to today's inbox. */
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     if (req.method !== "POST") return new Response("ok");
 
@@ -63,7 +71,7 @@ export default {
     // Discord's 3s deadline, so acknowledge now and edit the placeholder when
     // the work lands.
     switch (command) {
-      case "note": {
+      case "zettel": {
         const text = opt("text");
         if (!text) return empty("Nothing to capture.");
 
@@ -112,15 +120,16 @@ export default {
     }
   },
 
-  /** Cron. Fires at both DST candidate times; gates on local wall clock. */
+  /** Cron. Wakes every 15 minutes; gates on local wall clock. */
   async scheduled(_ctrl: ScheduledController, env: Env, ctx: ExecutionContext) {
     const { minutes, weekday } = localParts(env);
 
     // Tolerance absorbs Cloudflare firing a minute or two late — an exact
-    // match would silently skip the run. The two DST candidates are an hour
-    // apart, so a ±10 window can't match both.
+    // match would silently skip the run. It MUST stay under half the 15-minute
+    // tick spacing, or two jobs on adjacent ticks would both match the same
+    // tick and the if/else below would silently drop the later branch.
     const near = (h: string, m: string) =>
-      Math.abs(minutes - (Number(h) * 60 + Number(m))) <= 10;
+      Math.abs(minutes - (Number(h) * 60 + Number(m))) <= 7;
 
     if (
       weekday === env.WEEKLY_WEEKDAY &&
@@ -129,17 +138,27 @@ export default {
       ctx.waitUntil(run(env, "weekly"));
     } else if (near(env.DAILY_HOUR, env.DAILY_MINUTE)) {
       ctx.waitUntil(run(env, "daily"));
+      // Sunday 19:30 is BOTH the reflection nudge and the second zettel
+      // reminder. This branch runs first, so on Sundays the reflection wins and
+      // the zettel reminder is skipped for that one evening — deliberate. The
+      // alternative is two nudges stacked in the same channel at the same
+      // minute, which is how a channel gets muted.
     } else if (
       weekday === env.REFLECT_WEEKDAY &&
       near(env.REFLECT_HOUR, env.REFLECT_MINUTE)
     ) {
-      ctx.waitUntil(dc.send(env, REFLECT_NUDGE));
+      ctx.waitUntil(dc.send(env.DISCORD_WEBHOOK_LEARNING, REFLECT_NUDGE));
     } else if (near(env.GRATITUDE_HOUR, env.GRATITUDE_MINUTE)) {
-      ctx.waitUntil(dc.send(env, GRATITUDE_NUDGE));
+      ctx.waitUntil(dc.send(env.DISCORD_WEBHOOK_LEARNING, GRATITUDE_NUDGE));
+    } else if (
+      near(env.ZETTEL_HOUR_1, env.ZETTEL_MINUTE_1) ||
+      near(env.ZETTEL_HOUR_2, env.ZETTEL_MINUTE_2)
+    ) {
+      ctx.waitUntil(dc.send(env.DISCORD_WEBHOOK_LEARNING, ZETTEL_NUDGE));
     } else if (near(env.NEWS_HOUR, env.NEWS_MINUTE)) {
       ctx.waitUntil(postNewsDigest(env, localDate(env)));
     }
-    // Otherwise this is the wrong side of the DST pair — do nothing.
+    // Otherwise this tick isn't a job time — do nothing. Most of them aren't.
   },
 };
 
@@ -160,6 +179,21 @@ const GRATITUDE_NUDGE =
 const REFLECT_NUDGE =
   "🗓️ One thing you learned this week, and one mistake you made.\n" +
   "Reply with `/reflect learned:<…> mistake:<…>`.";
+
+/**
+ * The only nudge with no slash command to answer it — deliberately.
+ *
+ * `Slipbox/` is the one layer written entirely by hand, so this prompt has
+ * nowhere to route to and nothing to reply to; it points at Obsidian. It says
+ * so out loud because `/zettel` captures to `Inbox/` and the names invite
+ * exactly the wrong reflex: answering the reminder with a capture, which is
+ * the substitution the whole design exists to prevent.
+ */
+const ZETTEL_NUDGE =
+  "🗂️ Time to write a slipbox note.\n" +
+  "Not a capture — open Obsidian, take one idea, put it in your own words, " +
+  "and link it sideways to something already there. `/zettel` catches " +
+  "thoughts; this is the thinking.";
 
 /** An immediate, private reply — used when a command arrives with no usable input. */
 function empty(content: string): Response {
@@ -194,10 +228,13 @@ async function run(env: Env, kind: "daily" | "weekly") {
     }
 
     await writeFile(env, REVIEW, review + pruned, `${kind} review`);
-    await dc.send(env, entry);
+    await dc.send(env.DISCORD_WEBHOOK_LEARNING, entry);
   } catch (e) {
     console.error(e);
-    await dc.send(env, `⚠️ ${kind} review failed: ${(e as Error).message}`);
+    await dc.send(
+      env.DISCORD_WEBHOOK_LEARNING,
+      `⚠️ ${kind} review failed: ${(e as Error).message}`,
+    );
   }
 }
 

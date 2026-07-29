@@ -29,7 +29,7 @@ export interface NewsEnv {
   GITHUB_BRANCH: string;
   GITHUB_TOKEN: string;
   TIMEZONE: string;
-  DISCORD_WEBHOOK_URL: string;
+  DISCORD_WEBHOOK_UPDATES: string;
 }
 
 export async function generate(env: NewsEnv, date: string): Promise<string> {
@@ -100,9 +100,14 @@ export async function post(env: NewsEnv, date: string): Promise<void> {
     const digest = await generate(env, date);
     // Chunked because the word cap is a prompt instruction, not a guarantee —
     // a 2000-char overrun would otherwise be silently truncated by Discord.
-    for (const part of dc.chunk(digest)) await dc.send(env, part);
+    for (const part of dc.chunk(digest)) {
+      await dc.send(env.DISCORD_WEBHOOK_UPDATES, part);
+    }
   } catch (e) {
     console.error(e);
-    await dc.send(env, `⚠️ news digest failed: ${(e as Error).message}`);
+    await dc.send(
+      env.DISCORD_WEBHOOK_UPDATES,
+      `⚠️ news digest failed: ${(e as Error).message}`,
+    );
   }
 }

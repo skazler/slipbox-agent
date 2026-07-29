@@ -28,7 +28,7 @@ fi
 
 COMMANDS='[
   {
-    "name": "note",
+    "name": "zettel",
     "description": "Capture a thought into the slipbox inbox",
     "options": [{
       "name": "text",

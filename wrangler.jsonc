@@ -25,27 +25,34 @@
     "REFLECT_MINUTE": "30",
     "REFLECT_WEEKDAY": "Sun",
     "NEWS_HOUR": "5",
-    "NEWS_MINUTE": "0"
+    "NEWS_MINUTE": "0",
+    // Slipbox-note reminder, twice daily.
+    "ZETTEL_HOUR_1": "13",
+    "ZETTEL_MINUTE_1": "0",
+    "ZETTEL_HOUR_2": "19",
+    "ZETTEL_MINUTE_2": "30"
   },
 
   "triggers": {
-    // Cron is UTC-only, so each job is scheduled at BOTH its CDT and CST
-    // UTC hour; the handler checks local wall-clock time and no-ops on the
-    // one that doesn't match. This keeps the local times stable across DST.
-    "crons": [
-      "45 1,2 * * *",   // daily 20:45 America/Chicago
-      "0 14,15 * * 6",  // Saturday 09:00 America/Chicago
-      "0 0,1 * * *",    // gratitude prompt 19:00 America/Chicago
-      // Sunday 19:30 local lands on MONDAY in UTC — hence the `1`, not `0`.
-      "30 0,1 * * 1",   // weekly reflection prompt Sun 19:30 America/Chicago
-      "0 10,11 * * *"   // news digest 05:00 America/Chicago
-    ]
+    // One tick every 15 minutes; the handler matches local wall-clock time
+    // against the vars above and no-ops on the ~90 ticks a day that aren't a
+    // job time. Every scheduled time lands on a quarter hour, so the grid
+    // covers all of them.
+    //
+    // This replaced a per-job cron pair. Cron is UTC-only, so each job used to
+    // be registered at BOTH its CDT and CST hour with the handler discarding
+    // the wrong one — 5 expressions for 5 jobs, against an account cap of 5 on
+    // the free plan, and adding the reminder would have needed 4 more. Ticking
+    // on a fixed grid costs one expression no matter how many jobs there are,
+    // and DST stops being represented in this file at all.
+    "crons": ["0,15,30,45 * * * *"]
   }
 
   // Secrets (set with `wrangler secret put <NAME>`, never in this file):
   //   ANTHROPIC_API_KEY
-  //   GITHUB_TOKEN          fine-grained PAT, Contents: Read and write
-  //   DISCORD_WEBHOOK_URL   channel webhook the reviews are posted to
-  //   DISCORD_PUBLIC_KEY    app's Ed25519 public key, verifies interactions
-  //   DISCORD_USER_ID       your user id; anyone else's /note is rejected
+  //   GITHUB_TOKEN               fine-grained PAT, Contents: Read and write
+  //   DISCORD_WEBHOOK_LEARNING   #learning — reviews and both journal nudges
+  //   DISCORD_WEBHOOK_UPDATES    #updates — the morning news digest
+  //   DISCORD_PUBLIC_KEY         app's Ed25519 public key, verifies interactions
+  //   DISCORD_USER_ID            your user id; anyone else's /zettel is rejected
 }
