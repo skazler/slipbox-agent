@@ -62,6 +62,12 @@ COMMANDS='[
         "description": "One mistake you made this week.",
         "type": 3,
         "required": true
+      },
+      {
+        "name": "value",
+        "description": "A value to live by this coming week. Shown atop each morning digest.",
+        "type": 3,
+        "required": true
       }
     ]
   }

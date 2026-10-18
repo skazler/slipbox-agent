@@ -12,8 +12,6 @@
     "GITHUB_BRANCH": "main",
     "TIMEZONE": "America/Chicago",
     // Local wall-clock hours the jobs should fire at.
-    "DAILY_HOUR": "20",
-    "DAILY_MINUTE": "45",
     "WEEKLY_HOUR": "9",
     "WEEKLY_MINUTE": "0",
     "WEEKLY_WEEKDAY": "Sat",
@@ -25,12 +23,7 @@
     "REFLECT_MINUTE": "30",
     "REFLECT_WEEKDAY": "Sun",
     "NEWS_HOUR": "5",
-    "NEWS_MINUTE": "0",
-    // Slipbox-note reminder, twice daily.
-    "ZETTEL_HOUR_1": "13",
-    "ZETTEL_MINUTE_1": "0",
-    "ZETTEL_HOUR_2": "19",
-    "ZETTEL_MINUTE_2": "30"
+    "NEWS_MINUTE": "0"
   },
 
   "triggers": {

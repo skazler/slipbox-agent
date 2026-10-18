@@ -15,6 +15,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import * as dc from "./discord";
 import { readFile } from "./vault";
+import { latestValueGoal } from "./journal";
 
 const PROMPT = "Systems/prompts/news-digest.md";
 
@@ -97,10 +98,17 @@ export async function generate(env: NewsEnv, date: string): Promise<string> {
 
 export async function post(env: NewsEnv, date: string): Promise<void> {
   try {
-    const digest = await generate(env, date);
+    let digest = await generate(env, date);
+
+    // The week's value goal sits above the digest. Prepended here rather than
+    // asked of the model, so it's verbatim and can't be dropped or reworded.
+    const reflections = await readFile(env, "Journal/Weekly Reflection.md");
+    const goal = reflections && latestValueGoal(reflections);
+    if (goal) digest = `🎯 **This week:** ${goal}\n\n${digest}`;
+
     // Chunked because the word cap is a prompt instruction, not a guarantee —
     // a 2000-char overrun would otherwise be silently truncated by Discord.
-    for (const part of dc.chunk(digest)) {
+    for (const part of split(digest)) {
       await dc.send(env.DISCORD_WEBHOOK_UPDATES, part);
     }
   } catch (e) {
@@ -110,4 +118,28 @@ export async function post(env: NewsEnv, date: string): Promise<void> {
       `⚠️ news digest failed: ${(e as Error).message}`,
     );
   }
+}
+
+/**
+ * Split an over-long digest at the section break nearest its middle.
+ *
+ * `dc.chunk` fills the first message as full as it can, so on a typical
+ * morning the overflow was one section — Semiconductors, the last one — sitting
+ * alone at the top of message two. Balancing the halves keeps several sections
+ * in the second message, so Semiconductors lands at its bottom. Falls back to
+ * `dc.chunk` if no single break gives two halves that both fit.
+ */
+function split(digest: string): string[] {
+  const max = 1900;
+  if (digest.length <= max) return [digest];
+
+  let best = -1;
+  for (let i = digest.indexOf("\n\n"); i !== -1; i = digest.indexOf("\n\n", i + 1)) {
+    const fits = i <= max && digest.length - i - 2 <= max;
+    if (fits && (best === -1 || Math.abs(i - digest.length / 2) < Math.abs(best - digest.length / 2))) {
+      best = i;
+    }
+  }
+  if (best === -1) return dc.chunk(digest);
+  return [digest.slice(0, best).trim(), digest.slice(best).trim()];
 }

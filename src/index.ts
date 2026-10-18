@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import * as dc from "./discord";
-import { record as recordJournal, type Fields, type Ritual } from "./journal";
+import { record as recordJournal, VALUE_GOAL, type Fields, type Ritual } from "./journal";
 import { post as postNewsDigest } from "./news";
 import { readVault, writeFile, appendToInbox, moveFile, type Vault } from "./vault";
 
@@ -16,8 +16,6 @@ export interface Env {
   DISCORD_PUBLIC_KEY: string;
   DISCORD_USER_ID: string;
   TIMEZONE: string;
-  DAILY_HOUR: string;
-  DAILY_MINUTE: string;
   WEEKLY_HOUR: string;
   WEEKLY_MINUTE: string;
   WEEKLY_WEEKDAY: string;
@@ -28,11 +26,6 @@ export interface Env {
   REFLECT_WEEKDAY: string;
   NEWS_HOUR: string;
   NEWS_MINUTE: string;
-  // The slipbox-note reminder fires twice a day, hence the pair.
-  ZETTEL_HOUR_1: string;
-  ZETTEL_MINUTE_1: string;
-  ZETTEL_HOUR_2: string;
-  ZETTEL_MINUTE_2: string;
 }
 
 const REVIEW = "Journal/Review.md";
@@ -100,16 +93,19 @@ export default {
       case "reflect": {
         // Both halves are required — the reflection's whole move is reading the
         // lesson against the mistake, and Arete can't do that with one of them.
+        // The value goal is required too: the morning digest shows it all week.
         const learned = opt("learned");
         const mistake = opt("mistake");
-        if (!learned || !mistake) {
-          return empty("Both `learned` and `mistake` are needed.");
+        const value = opt("value");
+        if (!learned || !mistake || !value) {
+          return empty("`learned`, `mistake` and `value` are all needed.");
         }
 
         ctx.waitUntil(
           replyWithReflection(env, i, "reflection", [
             ["Learned", learned],
             ["Mistake", mistake],
+            [VALUE_GOAL, value],
           ]),
         );
         return dc.json({ type: dc.Reply.DEFERRED });
@@ -136,13 +132,6 @@ export default {
       near(env.WEEKLY_HOUR, env.WEEKLY_MINUTE)
     ) {
       ctx.waitUntil(run(env, "weekly"));
-    } else if (near(env.DAILY_HOUR, env.DAILY_MINUTE)) {
-      ctx.waitUntil(run(env, "daily"));
-      // Sunday 19:30 is BOTH the reflection nudge and the second zettel
-      // reminder. This branch runs first, so on Sundays the reflection wins and
-      // the zettel reminder is skipped for that one evening — deliberate. The
-      // alternative is two nudges stacked in the same channel at the same
-      // minute, which is how a channel gets muted.
     } else if (
       weekday === env.REFLECT_WEEKDAY &&
       near(env.REFLECT_HOUR, env.REFLECT_MINUTE)
@@ -150,11 +139,6 @@ export default {
       ctx.waitUntil(dc.send(env.DISCORD_WEBHOOK_LEARNING, REFLECT_NUDGE));
     } else if (near(env.GRATITUDE_HOUR, env.GRATITUDE_MINUTE)) {
       ctx.waitUntil(dc.send(env.DISCORD_WEBHOOK_LEARNING, GRATITUDE_NUDGE));
-    } else if (
-      near(env.ZETTEL_HOUR_1, env.ZETTEL_MINUTE_1) ||
-      near(env.ZETTEL_HOUR_2, env.ZETTEL_MINUTE_2)
-    ) {
-      ctx.waitUntil(dc.send(env.DISCORD_WEBHOOK_LEARNING, ZETTEL_NUDGE));
     } else if (near(env.NEWS_HOUR, env.NEWS_MINUTE)) {
       ctx.waitUntil(postNewsDigest(env, localDate(env)));
     }
@@ -177,23 +161,10 @@ const GRATITUDE_NUDGE =
 
 /** The same inversion for the Sunday weekly reflection. */
 const REFLECT_NUDGE =
-  "🗓️ One thing you learned this week, and one mistake you made.\n" +
-  "Reply with `/reflect learned:<…> mistake:<…>`.";
-
-/**
- * The only nudge with no slash command to answer it — deliberately.
- *
- * `Slipbox/` is the one layer written entirely by hand, so this prompt has
- * nowhere to route to and nothing to reply to; it points at Obsidian. It says
- * so out loud because `/zettel` captures to `Inbox/` and the names invite
- * exactly the wrong reflex: answering the reminder with a capture, which is
- * the substitution the whole design exists to prevent.
- */
-const ZETTEL_NUDGE =
-  "🗂️ Time to write a slipbox note.\n" +
-  "Not a capture — open Obsidian, take one idea, put it in your own words, " +
-  "and link it sideways to something already there. `/zettel` catches " +
-  "thoughts; this is the thinking.";
+  "🗓️ One thing you learned this week, one mistake you made, and a value " +
+  "to live by this coming week.\n" +
+  "Reply with `/reflect learned:<…> mistake:<…> value:<…>` — the value " +
+  "shows at the top of every morning digest until next Sunday.";
 
 /** An immediate, private reply — used when a command arrives with no usable input. */
 function empty(content: string): Response {
@@ -295,8 +266,12 @@ async function generate(
 ): Promise<string> {
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
+  // The weekly review reads the gratitude journal, so it gets Journal/ only —
+  // the rest of the vault would be ~60K tokens of slipbox material it's told
+  // to ignore.
   const corpus = [...vault]
     .filter(([p]) => !p.startsWith("Systems/prompts/"))
+    .filter(([p]) => kind !== "weekly" || p.startsWith("Journal/"))
     .map(([p, c]) => `<file path="${p}">\n${excerpt(p, c)}\n</file>`)
     .join("\n\n");
 
@@ -313,7 +288,7 @@ async function generate(
     system: [
       {
         type: "text",
-        text: `Today is ${localDate(env)} (${env.TIMEZONE}).\n\nThe vault follows. Knowledge/ notes are truncated — they are reference material, not thinking material.\n\n${corpus}`,
+        text: `Today is ${localDate(env)} (${env.TIMEZONE}).\n\n${kind === "weekly" ? "The journals follow." : "The vault follows. Knowledge/ notes are truncated — they are reference material, not thinking material."}\n\n${corpus}`,
       },
       { type: "text", text: prompt },
     ],

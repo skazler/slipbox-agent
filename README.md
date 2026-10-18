@@ -42,7 +42,7 @@ flowchart LR
 | :--- | :--- |
 | `/zettel <text>` | Appends a line to today's `Inbox/` file, creating it if needed |
 | `/gratitude <text>` | Records the entry in the journal, then replies in Arete's voice |
-| `/reflect learned:<…> mistake:<…>` | Both halves required — the reflection reads one against the other |
+| `/reflect learned:<…> mistake:<…> value:<…>` | All three required — the reflection reads the lesson against the mistake; the value goal shows atop every morning digest for the week |
 
 Every command is verified before it is read: Discord signs each request with Ed25519 and deliberately sends invalid signatures to check that the endpoint rejects them — one that doesn't gets disabled. After the signature, the caller's user id is checked against a single allowlisted id. Anyone else gets *"Not your slipbox."*
 
@@ -50,32 +50,30 @@ Each command needs at least two GitHub round-trips, which does not fit Discord's
 
 ---
 
-## Schedule — six jobs, one cron expression
+## Schedule — four jobs, one cron expression
 
 ![Schedule](assets/schedule.png)
 
-Cloudflare cron is UTC-only. Holding a fixed *local* time across daylight saving used to mean registering every job twice — once at its CDT hour, once at its CST hour — with the handler discarding the wrong half. That costs one expression per job against a free-plan cap of five, and the sixth job would not have fit.
+Cloudflare cron is UTC-only. Holding a fixed *local* time across daylight saving used to mean registering every job twice — once at its CDT hour, once at its CST hour — with the handler discarding the wrong half. That cost one expression per job against a free-plan cap of five.
 
 The schedule is now a single expression ticking every fifteen minutes. The handler converts to local time and matches minutes-of-day within ±7 minutes — a tolerance that must stay under half the tick spacing, so that a trigger firing a minute late still counts while two jobs on adjacent ticks can never both match and let the `if`/`else` silently drop the second.
 
 | Local | Job |
 | :--- | :--- |
-| 05:00 | News digest → `#updates` |
-| 09:00 Sat | Weekly review — folds the week's dailies, prunes the inbox |
-| 13:00 | Slipbox reminder |
+| 05:00 | News digest → `#updates`, with the week's value goal on top |
+| 09:00 Sat | Weekly review of the gratitude entries — also prunes the inbox |
 | 19:00 | Gratitude nudge |
-| 19:30 | Slipbox reminder — the Sunday reflection nudge takes this slot instead |
-| 20:45 | Daily review |
+| 19:30 Sun | Weekly reflection nudge |
 
-Ninety of the ninety-six daily ticks match nothing and return immediately.
+Almost all of the ninety-six daily ticks match nothing and return immediately.
 
 ---
 
 ## Review — what the agent actually produces
 
-The daily entry names what recurred and how often with dates, one structural observation about the day's thinking you didn't make yourself, and exactly one question. The weekly goes wider: a four-week recurrence table, and any theme circled three times with no note written yet, stated flatly as *write it or drop it*.
+The weekly review reads only `Journal/` and works from the week's gratitude entries: a recurrence table of what you were grateful for, themes that are new, themes that have gone quiet, how many days had an entry, and one question.
 
-Both are prepended to `Journal/Review.md`. The weekly pass then folds the week's daily entries into itself and drops them, which is what stops `Review.md` from becoming a second pile, and archives inbox files older than seven days into `Inbox/archive/`.
+It is prepended to `Journal/Review.md`. The weekly pass also drops any old daily entries left in `Review.md`, and archives inbox files older than seven days into `Inbox/archive/`.
 
 **Prompts are data, not deployment.** The instructions for each job live in the vault (`Systems/prompts/*.md`), not in the Worker. Rewriting how the review reads is a commit to the vault, not a redeploy.
 
@@ -87,11 +85,9 @@ Both are prepended to `Journal/Review.md`. The weekly pass then folds the week's
 
 **Reference notes are truncated before the prompt is built.** `Knowledge/` is a reference library, not thinking material. Four files there are roughly 45% of the vault by bytes and would dominate every prompt for nothing, so anything under that prefix is cut to 200 words. Everything the agent actually reasons over — `Inbox/`, `Slipbox/`, `Journal/`, `Systems/` — ships in full.
 
-**Models are chosen per job.** Daily reviews run Sonnet 5 at high effort, weekly reviews Opus 5 at xhigh, journal reflections Opus 5 at high. The news digest uses Opus 5 with the server-side `web_search` tool, which pauses the turn after ten tool iterations; the handler resumes by re-sending with the partial assistant turn appended, bounded to three resumes.
+**Models are chosen per job.** Weekly reviews run Opus 5 at xhigh, journal reflections Opus 5 at high. The news digest uses Opus 5 with the server-side `web_search` tool, which pauses the turn after ten tool iterations; the handler resumes by re-sending with the partial assistant turn appended, bounded to three resumes.
 
 **Writes are ordered so a Discord failure is never a data loss.** The journal entry commits before the reply is sent. A webhook that fails costs the notification, never the entry.
-
-**The nudge with no command to answer it.** The slipbox reminder deliberately routes nowhere. `/zettel` captures to `Inbox/`, and the names invite exactly the wrong reflex — answering a *write a note* reminder with a capture, which is the substitution the whole design exists to prevent. So the reminder says so out loud and points at Obsidian.
 
 ---
 

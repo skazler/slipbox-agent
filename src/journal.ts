@@ -46,6 +46,28 @@ const RITUALS = {
 
 export type Ritual = keyof typeof RITUALS;
 
+/** Field label for the weekly value goal — the news digest finds it by this. */
+export const VALUE_GOAL = "Value goal";
+
+/**
+ * The value goal from the most recent weekly reflection, or null if there is
+ * none from the last 8 days. Entries are newest-first, so the first match is
+ * the latest; the 8-day window means a skipped Sunday drops the reminder
+ * instead of repeating a stale goal indefinitely.
+ */
+export function latestValueGoal(journal: string, now = Date.now()): string | null {
+  const label = `**${VALUE_GOAL}:**`;
+  const at = journal.indexOf(label);
+  if (at === -1) return null;
+
+  const heading = journal.slice(0, at).match(/\n## (.+)\n(?![\s\S]*\n## )/);
+  const written = heading ? Date.parse(heading[1]) : NaN;
+  if (Number.isNaN(written) || now - written > 8 * 864e5) return null;
+
+  const goal = journal.slice(at + label.length).split("\n")[0].trim();
+  return goal || null;
+}
+
 /** `[label, value]` — rendered as `**<label>:** <value>` in the entry. */
 export type Fields = [string, string][];
 
