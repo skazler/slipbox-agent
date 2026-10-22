@@ -81,11 +81,27 @@ export default {
       }
 
       case "gratitude": {
+        // All five are required, the same as /reflect — an optional field is
+        // one that quietly stops getting filled in.
         const text = opt("text");
-        if (!text) return empty("Nothing to record.");
+        const longDream = opt("long_dream");
+        const nearDream = opt("near_dream");
+        const relationships = opt("relationships");
+        const values = opt("values");
+        if (!text || !longDream || !nearDream || !relationships || !values) {
+          return empty(
+            "`text`, `long_dream`, `near_dream`, `relationships` and `values` are all needed.",
+          );
+        }
 
         ctx.waitUntil(
-          replyWithReflection(env, i, "gratitude", [["Grateful for", text]]),
+          replyWithReflection(env, i, "gratitude", [
+            ["Grateful for", text],
+            ["Long-term dream", longDream],
+            ["Near-term dream", nearDream],
+            ["Cultivating genuine relationships", relationships],
+            ["Living my values", values],
+          ]),
         );
         return dc.json({ type: dc.Reply.DEFERRED });
       }
@@ -156,8 +172,13 @@ export default {
  * that lapses.
  */
 const GRATITUDE_NUDGE =
-  "🌙 What are you grateful for today?\n" +
-  "Reply with `/gratitude <your answer>` and Arete will write back.";
+  "🌙 Tonight:\n" +
+  "• What are you grateful for today?\n" +
+  "• One \"unrealistic\" long-term dream you're concretely chasing — and how?\n" +
+  "• One closer-term dream you're concretely chasing — and how?\n" +
+  "• How are you cultivating genuine relationships right now?\n" +
+  "• How did you live in alignment with your values today — and if you didn't, how will you improve tomorrow?\n" +
+  "Reply with `/gratitude` and fill in all five — Arete will write back.";
 
 /** The same inversion for the Sunday weekly reflection. */
 const REFLECT_NUDGE =

@@ -40,12 +40,38 @@ COMMANDS='[
   {
     "name": "gratitude",
     "description": "Record today'"'"'s gratitude and get Arete'"'"'s reflection back",
-    "options": [{
-      "name": "text",
-      "description": "What you are grateful for today.",
-      "type": 3,
-      "required": true
-    }]
+    "options": [
+      {
+        "name": "text",
+        "description": "What you are grateful for today.",
+        "type": 3,
+        "required": true
+      },
+      {
+        "name": "long_dream",
+        "description": "One unrealistic long-term dream you are concretely chasing, and how.",
+        "type": 3,
+        "required": true
+      },
+      {
+        "name": "near_dream",
+        "description": "One closer-term dream you are concretely chasing, and how.",
+        "type": 3,
+        "required": true
+      },
+      {
+        "name": "relationships",
+        "description": "How you are cultivating genuine relationships right now.",
+        "type": 3,
+        "required": true
+      },
+      {
+        "name": "values",
+        "description": "How you lived your values today; if you did not, how you will improve tomorrow.",
+        "type": 3,
+        "required": true
+      }
+    ]
   },
   {
     "name": "reflect",

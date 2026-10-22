@@ -41,7 +41,7 @@ flowchart LR
 | Command | Effect |
 | :--- | :--- |
 | `/zettel <text>` | Appends a line to today's `Inbox/` file, creating it if needed |
-| `/gratitude <text>` | Records the entry in the journal, then replies in Arete's voice |
+| `/gratitude text:<…> long_dream:<…> near_dream:<…> relationships:<…> values:<…>` | All five required — what you're grateful for, one "unrealistic" long-term dream and one closer-term dream you're concretely chasing, how you're cultivating genuine relationships, and how you lived your values today (and if not, how you'll improve tomorrow). Records the entry, then replies in Arete's voice |
 | `/reflect learned:<…> mistake:<…> value:<…>` | All three required — the reflection reads the lesson against the mistake; the value goal shows atop every morning digest for the week |
 
 Every command is verified before it is read: Discord signs each request with Ed25519 and deliberately sends invalid signatures to check that the endpoint rejects them — one that doesn't gets disabled. After the signature, the caller's user id is checked against a single allowlisted id. Anyone else gets *"Not your slipbox."*
