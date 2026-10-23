@@ -124,9 +124,9 @@ export async function post(env: NewsEnv, date: string): Promise<void> {
  * Split an over-long digest at the section break nearest its middle.
  *
  * `dc.chunk` fills the first message as full as it can, so on a typical
- * morning the overflow was one section — Semiconductors, the last one — sitting
- * alone at the top of message two. Balancing the halves keeps several sections
- * in the second message, so Semiconductors lands at its bottom. Falls back to
+ * morning the overflow was one section — the last one — sitting alone at the
+ * top of message two. Balancing the halves keeps several sections in the
+ * second message, so the closing section lands at its bottom. Falls back to
  * `dc.chunk` if no single break gives two halves that both fit.
  */
 function split(digest: string): string[] {
