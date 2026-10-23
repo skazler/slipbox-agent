@@ -39,39 +39,53 @@ COMMANDS='[
   },
   {
     "name": "gratitude",
-    "description": "Record today'"'"'s gratitude and get Arete'"'"'s reflection back",
-    "options": [
-      {
-        "name": "text",
-        "description": "What you are grateful for today.",
-        "type": 3,
-        "required": true
-      },
-      {
-        "name": "long_dream",
-        "description": "One unrealistic long-term dream you are concretely chasing, and how.",
-        "type": 3,
-        "required": true
-      },
-      {
-        "name": "near_dream",
-        "description": "One closer-term dream you are concretely chasing, and how.",
-        "type": 3,
-        "required": true
-      },
-      {
-        "name": "relationships",
-        "description": "How you are cultivating genuine relationships right now.",
-        "type": 3,
-        "required": true
-      },
-      {
-        "name": "values",
-        "description": "How you lived your values today; if you did not, how you will improve tomorrow.",
-        "type": 3,
-        "required": true
-      }
-    ]
+    "description": "Gratitude 1/5: what you are grateful for today",
+    "options": [{
+      "name": "text",
+      "description": "What you are grateful for today.",
+      "type": 3,
+      "required": true
+    }]
+  },
+  {
+    "name": "long-dream",
+    "description": "Gratitude 2/5: an unrealistic long-term dream you are chasing",
+    "options": [{
+      "name": "text",
+      "description": "One unrealistic long-term dream you are concretely chasing, and how.",
+      "type": 3,
+      "required": true
+    }]
+  },
+  {
+    "name": "near-dream",
+    "description": "Gratitude 3/5: a closer-term dream you are chasing",
+    "options": [{
+      "name": "text",
+      "description": "One closer-term dream you are concretely chasing, and how.",
+      "type": 3,
+      "required": true
+    }]
+  },
+  {
+    "name": "relationships",
+    "description": "Gratitude 4/5: how you are cultivating genuine relationships",
+    "options": [{
+      "name": "text",
+      "description": "How you are cultivating genuine relationships right now.",
+      "type": 3,
+      "required": true
+    }]
+  },
+  {
+    "name": "values",
+    "description": "Gratitude 5/5: how you lived your values today",
+    "options": [{
+      "name": "text",
+      "description": "How you lived your values today; if you did not, how you will improve tomorrow.",
+      "type": 3,
+      "required": true
+    }]
   },
   {
     "name": "reflect",
@@ -103,7 +117,7 @@ curl -fsS -X PUT "$URL" \
   -H "Authorization: Bot $DISCORD_BOT_TOKEN" \
   -H "Content-Type: application/json" \
   -d "$COMMANDS" \
-  | grep -o '"name":"[a-z]*"' | sed 's/"name":"/  ok    \//; s/"//'
+  | grep -o '"name":"[a-z-]*"' | sed 's/"name":"/  ok    \//; s/"//'
 
 echo
 echo "done — the set above is now the complete list; anything else was removed"

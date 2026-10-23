@@ -1,6 +1,15 @@
 import Anthropic from "@anthropic-ai/sdk";
 import * as dc from "./discord";
-import { record as recordJournal, VALUE_GOAL, type Fields, type Ritual } from "./journal";
+import {
+  answer as answerGratitude,
+  GRATITUDE_QUESTIONS,
+  record as recordJournal,
+  VALUE_GOAL,
+  type Fields,
+  type Question,
+  type Recorded,
+  type Ritual,
+} from "./journal";
 import { post as postNewsDigest } from "./news";
 import { readVault, writeFile, appendToInbox, moveFile, type Vault } from "./vault";
 
@@ -80,29 +89,15 @@ export default {
         return dc.json({ type: dc.Reply.DEFERRED });
       }
 
-      case "gratitude": {
-        // All five are required, the same as /reflect — an optional field is
-        // one that quietly stops getting filled in.
+      case "gratitude":
+      case "long-dream":
+      case "near-dream":
+      case "relationships":
+      case "values": {
         const text = opt("text");
-        const longDream = opt("long_dream");
-        const nearDream = opt("near_dream");
-        const relationships = opt("relationships");
-        const values = opt("values");
-        if (!text || !longDream || !nearDream || !relationships || !values) {
-          return empty(
-            "`text`, `long_dream`, `near_dream`, `relationships` and `values` are all needed.",
-          );
-        }
+        if (!text) return empty("Nothing to record.");
 
-        ctx.waitUntil(
-          replyWithReflection(env, i, "gratitude", [
-            ["Grateful for", text],
-            ["Long-term dream", longDream],
-            ["Near-term dream", nearDream],
-            ["Cultivating genuine relationships", relationships],
-            ["Living my values", values],
-          ]),
-        );
+        ctx.waitUntil(replyToAnswer(env, i, command, text));
         return dc.json({ type: dc.Reply.DEFERRED });
       }
 
@@ -178,7 +173,9 @@ const GRATITUDE_NUDGE =
   "• One closer-term dream you're concretely chasing — and how?\n" +
   "• How are you cultivating genuine relationships right now?\n" +
   "• How did you live in alignment with your values today — and if you didn't, how will you improve tomorrow?\n" +
-  "Reply with `/gratitude` and fill in all five — Arete will write back.";
+  "Answer each with its own command — `/gratitude`, `/long-dream`, " +
+  "`/near-dream`, `/relationships`, `/values` — in any order. Arete writes " +
+  "back once all five are in.";
 
 /** The same inversion for the Sunday weekly reflection. */
 const REFLECT_NUDGE =
@@ -245,18 +242,51 @@ async function replyWithReflection(
   fields: Fields,
 ): Promise<void> {
   try {
-    const { reflection, duplicate } = await recordJournal(env, ritual, fields);
-
-    const note = duplicate ? "*(second entry for today — both kept)*\n\n" : "";
-    const parts = dc.chunk(note + reflection);
-
-    await dc.followUp(i, parts[0]);
-    // Discord renders follow-ups in order, so the reflection reads continuously
-    // even though it arrives as several messages.
-    for (const part of parts.slice(1)) await dc.followUpMore(i, part);
+    await sendReflection(i, await recordJournal(env, ritual, fields));
   } catch (e) {
     console.error(e);
     await dc.followUp(i, `✗ ${ritual} failed: ${(e as Error).message}`);
+  }
+}
+
+/** Send a recorded reflection back in message-sized pieces. */
+async function sendReflection(
+  i: dc.Interaction,
+  { reflection, duplicate }: Recorded,
+): Promise<void> {
+  const note = duplicate ? "*(second entry for today — both kept)*\n\n" : "";
+  const parts = dc.chunk(note + reflection);
+
+  await dc.followUp(i, parts[0]);
+  // Discord renders follow-ups in order, so the reflection reads continuously
+  // even though it arrives as several messages.
+  for (const part of parts.slice(1)) await dc.followUpMore(i, part);
+}
+
+/**
+ * Save one gratitude answer. The first four just confirm what's still missing;
+ * the fifth records the entry and gets the reflection back.
+ */
+async function replyToAnswer(
+  env: Env,
+  i: dc.Interaction,
+  question: Question,
+  text: string,
+): Promise<void> {
+  try {
+    const result = await answerGratitude(env, question, text);
+    if (!result.done) {
+      const left = result.missing.map((q) => `\`/${q}\``).join(", ");
+      await dc.followUp(
+        i,
+        `✓ ${GRATITUDE_QUESTIONS[question]} saved — still need ${left}.`,
+      );
+      return;
+    }
+    await sendReflection(i, result);
+  } catch (e) {
+    console.error(e);
+    await dc.followUp(i, `✗ gratitude failed: ${(e as Error).message}`);
   }
 }
 

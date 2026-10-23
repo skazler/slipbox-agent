@@ -16,7 +16,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
-import { readVault, writeFile, type Vault } from "./vault";
+import { readFile, readVault, writeFile, type Vault } from "./vault";
 
 /**
  * Arete's voice is defined once and loaded ahead of every ritual's own prompt.
@@ -70,6 +70,85 @@ export function latestValueGoal(journal: string, now = Date.now()): string | nul
 
 /** `[label, value]` — rendered as `**<label>:** <value>` in the entry. */
 export type Fields = [string, string][];
+
+/**
+ * The gratitude entry's five questions, one slash command each, in entry order.
+ *
+ * They used to be five options on a single `/gratitude`, which meant writing
+ * all five in one go inside Discord's command box. Answering one at a time is
+ * how the nudge actually reads — so each answer lands in a draft, and the entry
+ * is only written (and Arete only reflects) once the fifth arrives.
+ */
+export const GRATITUDE_QUESTIONS = {
+  gratitude: "Grateful for",
+  "long-dream": "Long-term dream",
+  "near-dream": "Near-term dream",
+  relationships: "Cultivating genuine relationships",
+  values: "Living my values",
+} as const;
+
+export type Question = keyof typeof GRATITUDE_QUESTIONS;
+
+/**
+ * Lives under Systems/, not Journal/, so a half-answered day never reaches a
+ * reflection's corpus or the weekly review.
+ */
+const DRAFT = "Systems/gratitude-draft.json";
+
+interface Draft {
+  date: string;
+  answers: Partial<Record<Question, string>>;
+}
+
+export type Answered =
+  | { done: false; missing: Question[] }
+  | ({ done: true } & Recorded);
+
+/**
+ * Save one answer to today's draft; once all five are in, record the entry and
+ * reset the draft. A draft from an earlier day is discarded rather than carried
+ * over — yesterday's answers don't belong in tonight's entry. Re-answering a
+ * question before the fifth arrives overwrites it.
+ */
+export async function answer(
+  env: JournalEnv,
+  question: Question,
+  value: string,
+): Promise<Answered> {
+  const date = longDate(env.TIMEZONE);
+  const saved = await readFile(env, DRAFT);
+  const draft: Draft = saved ? JSON.parse(saved) : { date, answers: {} };
+  const answers = draft.date === date ? draft.answers : {};
+  answers[question] = value.trim();
+
+  const all = Object.keys(GRATITUDE_QUESTIONS) as Question[];
+  const missing = all.filter((q) => !answers[q]);
+
+  if (missing.length) {
+    await writeFile(
+      env,
+      DRAFT,
+      JSON.stringify({ date, answers } satisfies Draft, null, 2) + "\n",
+      `gratitude draft: ${question}`,
+    );
+    return { done: false, missing };
+  }
+
+  const recorded = await record(
+    env,
+    "gratitude",
+    all.map((q) => [GRATITUDE_QUESTIONS[q], answers[q]!]),
+  );
+  // Reset only after the entry is committed, so a failed reflection keeps the
+  // answers and the last command can simply be sent again.
+  await writeFile(
+    env,
+    DRAFT,
+    JSON.stringify({ date, answers: {} } satisfies Draft, null, 2) + "\n",
+    `gratitude draft: reset`,
+  );
+  return { done: true, ...recorded };
+}
 
 const PROMPT_PATHS: readonly string[] = [
   VOICE,
