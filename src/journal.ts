@@ -9,10 +9,11 @@
  * nudge, but you answer with a slash command and the reflection comes back as
  * the response.
  *
- * Both rituals are the same shape — prepend a dated entry, ask Arete to reflect
- * on it against the whole journal — so they share everything but their field
- * labels and their prompt. Arete's voice lives in the vault, not here, so
- * tuning it is an Obsidian edit rather than a redeploy.
+ * Both rituals prepend a dated entry, so they share everything but their field
+ * labels and their prompt. The weekly reflection still asks Arete to reflect on
+ * it against the whole journal; the gratitude entry is record-only — it goes
+ * straight into Obsidian with no reply. Arete's voice lives in the vault, not
+ * here, so tuning it is an Obsidian edit rather than a redeploy.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -32,7 +33,8 @@ const VOICE = "Systems/prompts/arete.md";
 const RITUALS = {
   gratitude: {
     file: "Journal/Gratitude.md",
-    prompt: "Systems/prompts/gratitude.md",
+    // No prompt: the nightly entry is just recorded, never reflected on.
+    prompt: null,
     fallback: "# Gratitude Journal\n\n---\n",
     commit: "gratitude",
   },
@@ -77,7 +79,7 @@ export type Fields = [string, string][];
  * They used to be five options on a single `/gratitude`, which meant writing
  * all five in one go inside Discord's command box. Answering one at a time is
  * how the nudge actually reads — so each answer lands in a draft, and the entry
- * is only written (and Arete only reflects) once the fifth arrives.
+ * is only written once the fifth arrives.
  */
 export const GRATITUDE_QUESTIONS = {
   gratitude: "Grateful for",
@@ -139,7 +141,7 @@ export async function answer(
     "gratitude",
     all.map((q) => [GRATITUDE_QUESTIONS[q], answers[q]!]),
   );
-  // Reset only after the entry is committed, so a failed reflection keeps the
+  // Reset only after the entry is committed, so a failed write keeps the
   // answers and the last command can simply be sent again.
   await writeFile(
     env,
@@ -152,7 +154,7 @@ export async function answer(
 
 const PROMPT_PATHS: readonly string[] = [
   VOICE,
-  ...Object.values(RITUALS).map((r) => r.prompt),
+  ...Object.values(RITUALS).flatMap((r) => (r.prompt ? [r.prompt] : [])),
 ];
 
 /**
@@ -212,13 +214,15 @@ export interface JournalEnv {
 }
 
 export interface Recorded {
-  reflection: string;
+  /** Null for a record-only ritual (gratitude). */
+  reflection: string | null;
   /** True when today already had an entry — surfaced so a double-submit is visible. */
   duplicate: boolean;
 }
 
 /**
- * Generate the reflection, commit the entry, hand the text back for Discord.
+ * Generate the reflection (if the ritual has one), commit the entry, hand the
+ * text back for Discord.
  *
  * Order matters: the file is written before the caller replies, so a Discord
  * failure costs you the notification and never the entry.
@@ -229,6 +233,25 @@ export async function record(
   fields: Fields,
 ): Promise<Recorded> {
   const spec = RITUALS[ritual];
+  const date = longDate(env.TIMEZONE);
+
+  const written = fields
+    .map(([label, value]) => `**${label}:** ${value.trim()}`)
+    .join("\n\n");
+
+  if (!spec.prompt) {
+    // Record-only: just this one file, no vault read, no model call.
+    const journal = (await readFile(env, spec.file)) ?? spec.fallback;
+    const duplicate = journal.includes(`\n## ${date}\n`);
+    await writeFile(
+      env,
+      spec.file,
+      prepend(journal, `## ${date}\n\n${written}\n\n---`),
+      `${spec.commit}: ${date}`,
+    );
+    return { reflection: null, duplicate };
+  }
+
   const vault = await readVault(env);
 
   const voice = vault.get(VOICE);
@@ -237,13 +260,8 @@ export async function record(
   const prompt = vault.get(spec.prompt);
   if (!prompt) throw new Error(`missing ${spec.prompt}`);
 
-  const date = longDate(env.TIMEZONE);
   const journal = vault.get(spec.file) ?? spec.fallback;
   const duplicate = journal.includes(`\n## ${date}\n`);
-
-  const written = fields
-    .map(([label, value]) => `**${label}:** ${value.trim()}`)
-    .join("\n\n");
 
   const reflection = (
     await generate(env, voice, prompt, corpus(vault), date, written)

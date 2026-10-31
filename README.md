@@ -41,7 +41,7 @@ flowchart LR
 | Command | Effect |
 | :--- | :--- |
 | `/zettel <text>` | Appends a line to today's `Inbox/` file, creating it if needed |
-| `/gratitude` · `/long-dream` · `/near-dream` · `/relationships` · `/values` | One command per question, answered in any order: what you're grateful for, one "unrealistic" long-term dream and one closer-term dream you're concretely chasing, how you're cultivating genuine relationships, and how you lived your values today (and if not, how you'll improve tomorrow). Each answer is saved to a draft (`Systems/gratitude-draft.json`); after the fifth, the entry is recorded and Arete replies |
+| `/gratitude` · `/long-dream` · `/near-dream` · `/relationships` · `/values` | One command per question, answered in any order: what you're grateful for, one "unrealistic" long-term dream and one closer-term dream you're concretely chasing, how you're cultivating genuine relationships, and how you lived your values today (and if not, how you'll improve tomorrow). Each answer is saved to a draft (`Systems/gratitude-draft.json`); after the fifth, the entry is written to `Journal/Gratitude.md` — no agent reply |
 | `/reflect learned:<…> mistake:<…> value:<…>` | All three required — the reflection reads the lesson against the mistake; the value goal shows atop every morning digest for the week |
 
 Every command is verified before it is read: Discord signs each request with Ed25519 and deliberately sends invalid signatures to check that the endpoint rejects them — one that doesn't gets disabled. After the signature, the caller's user id is checked against a single allowlisted id. Anyone else gets *"Not your slipbox."*
@@ -85,7 +85,7 @@ It is prepended to `Journal/Review.md`. The weekly pass also drops any old daily
 
 **Reference notes are truncated before the prompt is built.** `Knowledge/` is a reference library, not thinking material. Four files there are roughly 45% of the vault by bytes and would dominate every prompt for nothing, so anything under that prefix is cut to 200 words. Everything the agent actually reasons over — `Inbox/`, `Slipbox/`, `Journal/`, `Systems/` — ships in full.
 
-**Models are chosen per job.** Weekly reviews run Opus 5 at xhigh, journal reflections Opus 5 at high. The news digest uses Opus 5 with the server-side `web_search` tool, which pauses the turn after ten tool iterations; the handler resumes by re-sending with the partial assistant turn appended, bounded to three resumes.
+**Models are chosen per job.** Weekly reviews run Opus 5 at xhigh, the weekly journal reflection Opus 5 at high. The news digest uses Opus 5 with the server-side `web_search` tool, which pauses the turn after ten tool iterations; the handler resumes by re-sending with the partial assistant turn appended, bounded to three resumes.
 
 **Writes are ordered so a Discord failure is never a data loss.** The journal entry commits before the reply is sent. A webhook that fails costs the notification, never the entry.
 

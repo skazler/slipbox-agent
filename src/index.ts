@@ -174,8 +174,8 @@ const GRATITUDE_NUDGE =
   "• How are you cultivating genuine relationships right now?\n" +
   "• How did you live in alignment with your values today — and if you didn't, how will you improve tomorrow?\n" +
   "Answer each with its own command — `/gratitude`, `/long-dream`, " +
-  "`/near-dream`, `/relationships`, `/values` — in any order. Arete writes " +
-  "back once all five are in.";
+  "`/near-dream`, `/relationships`, `/values` — in any order. The entry is " +
+  "written to the journal once all five are in.";
 
 /** The same inversion for the Sunday weekly reflection. */
 const REFLECT_NUDGE =
@@ -255,7 +255,7 @@ async function sendReflection(
   { reflection, duplicate }: Recorded,
 ): Promise<void> {
   const note = duplicate ? "*(second entry for today — both kept)*\n\n" : "";
-  const parts = dc.chunk(note + reflection);
+  const parts = dc.chunk(note + (reflection ?? "✓ Recorded."));
 
   await dc.followUp(i, parts[0]);
   // Discord renders follow-ups in order, so the reflection reads continuously
@@ -265,7 +265,7 @@ async function sendReflection(
 
 /**
  * Save one gratitude answer. The first four just confirm what's still missing;
- * the fifth records the entry and gets the reflection back.
+ * the fifth records the entry to the journal — no reflection comes back.
  */
 async function replyToAnswer(
   env: Env,
@@ -283,7 +283,8 @@ async function replyToAnswer(
       );
       return;
     }
-    await sendReflection(i, result);
+    const note = result.duplicate ? " (second entry for today — both kept)" : "";
+    await dc.followUp(i, `✓ Gratitude entry recorded to Journal/Gratitude.md${note}.`);
   } catch (e) {
     console.error(e);
     await dc.followUp(i, `✗ gratitude failed: ${(e as Error).message}`);
