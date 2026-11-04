@@ -60,8 +60,8 @@ The schedule is now a single expression ticking every fifteen minutes. The handl
 
 | Local | Job |
 | :--- | :--- |
-| 05:00 | News digest → `#updates`, with the week's value goal on top |
 | 09:00 Sat | Weekly review of the gratitude entries — also prunes the inbox |
+| 12:00 | News digest → `#updates`, with the week's value goal on top |
 | 19:00 | Gratitude nudge |
 | 19:30 Sun | Weekly reflection nudge |
 
@@ -102,7 +102,7 @@ Secrets are set with `wrangler secret put <NAME>` and never appear in the repo:
 | `ANTHROPIC_API_KEY` | Model calls |
 | `GITHUB_TOKEN` | Fine-grained PAT, Contents: Read and write |
 | `DISCORD_WEBHOOK_LEARNING` | `#learning` — reviews and both journal nudges |
-| `DISCORD_WEBHOOK_UPDATES` | `#updates` — the morning news digest |
+| `DISCORD_WEBHOOK_UPDATES` | `#updates` — the midday news digest |
 | `DISCORD_PUBLIC_KEY` | The app's Ed25519 public key, verifies interactions |
 | `DISCORD_USER_ID` | The only id whose commands are accepted |
 
