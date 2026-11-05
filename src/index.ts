@@ -12,7 +12,7 @@ import {
 } from "./journal";
 import { post as postNewsDigest } from "./news";
 import { rollUpZettels } from "./zettels";
-import { readVault, writeFile, appendToInbox, moveFile, type Vault } from "./vault";
+import { readVault, writeFile, appendToInbox, type Vault } from "./vault";
 
 export interface Env {
   ANTHROPIC_API_KEY: string;
@@ -148,7 +148,8 @@ export default {
     ) {
       ctx.waitUntil(
         rollUpZettels(env, localDate(env)).then(
-          (n) => console.log(`zettel roll-up: ${n} filed to Cogitations`),
+          ({ count, archived }) =>
+            console.log(`zettel roll-up: ${count} filed to Review.md, ${archived} inbox files archived`),
           async (e: Error) => {
             console.error(e);
             await dc.send(
@@ -232,8 +233,7 @@ async function run(env: Env, kind: "daily" | "weekly") {
     if (kind === "weekly") {
       const before = countDailies(review);
       review = dropDailies(review);
-      const archived = await archiveOldInbox(env, vault);
-      pruned = `\n**Pruned:** ${before} daily entries folded · ${archived} inbox files archived\n`;
+      pruned = `\n**Pruned:** ${before} daily entries folded\n`;
     }
 
     await writeFile(env, REVIEW, review + pruned, `${kind} review`);
@@ -304,7 +304,7 @@ async function replyToAnswer(
       return;
     }
     const note = result.duplicate ? " (second entry for today — both kept)" : "";
-    await dc.followUp(i, `✓ Gratitude entry recorded to Journal/Gratitude.md${note}.`);
+    await dc.followUp(i, `✓ Entry recorded to Journal/Cogitations.md${note}.`);
   } catch (e) {
     console.error(e);
     await dc.followUp(i, `✗ gratitude failed: ${(e as Error).message}`);
@@ -338,7 +338,7 @@ async function generate(
 ): Promise<string> {
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
-  // The weekly review reads the gratitude journal, so it gets Journal/ only —
+  // The weekly review reads the daily entries in Cogitations, so it gets Journal/ only —
   // the rest of the vault would be ~60K tokens of slipbox material it's told
   // to ignore.
   const corpus = [...vault]
@@ -419,24 +419,6 @@ function dropDailies(review: string): string {
   return sections(review)
     .filter((s) => !DAILY_SECTION.test(s.split("\n")[0]))
     .join("\n");
-}
-
-// ----------------------------------------------------------------- inbox
-
-/** Move inbox files past the 7-day window into Inbox/archive/. */
-async function archiveOldInbox(env: Env, vault: Vault): Promise<number> {
-  const cutoff = Date.now() - 7 * 864e5;
-  let n = 0;
-
-  for (const path of vault.keys()) {
-    const m = path.match(/^Inbox\/(\d{4}-\d{2}-\d{2})\.md$/);
-    if (!m) continue;
-    if (Date.parse(m[1] + "T00:00:00Z") >= cutoff) continue;
-
-    await moveFile(env, path, `Inbox/archive/${m[1]}.md`, "archive inbox");
-    n++;
-  }
-  return n;
 }
 
 // ------------------------------------------------------------------ time

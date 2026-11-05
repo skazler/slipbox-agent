@@ -1,6 +1,6 @@
 /**
- * The reflective journals — the evening gratitude entry and the Sunday weekly
- * reflection.
+ * The reflective journals — the evening gratitude entry (written to
+ * Journal/Cogitations.md) and the Sunday weekly reflection.
  *
  * Ported from the Hermes `gratitude-prompt` and `weekly-reflection-prompt`
  * crons. Each ran on a schedule, DM'd a prompt, and wrote Arete's reflection
@@ -32,11 +32,12 @@ const VOICE = "Systems/prompts/arete.md";
 
 const RITUALS = {
   gratitude: {
-    file: "Journal/Gratitude.md",
+    // Gratitude was collapsed into Cogitations: one daily journal, not two.
+    file: "Journal/Cogitations.md",
     // No prompt: the nightly entry is just recorded, never reflected on.
     prompt: null,
-    fallback: "# Gratitude Journal\n\n---\n",
-    commit: "gratitude",
+    fallback: "# Cogitations\n\n---\n",
+    commit: "cogitations",
   },
   reflection: {
     file: "Journal/Weekly Reflection.md",
