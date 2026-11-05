@@ -214,7 +214,7 @@ async function replyWithRecord(
   try {
     const { duplicate } = await recordJournal(env, ritual, fields);
     const note = duplicate ? " (second entry for today — both kept)" : "";
-    await dc.followUp(i, `✓ Recorded to Journal/Weekly Reflection.md${note}.`);
+    await dc.followUp(i, `✓ Recorded to Journal >> Weekly Reflection${note}.`);
   } catch (e) {
     console.error(e);
     await dc.followUp(i, `✗ ${ritual} failed: ${(e as Error).message}`);
@@ -242,7 +242,7 @@ async function replyToAnswer(
       return;
     }
     const note = result.duplicate ? " (second entry for today — both kept)" : "";
-    await dc.followUp(i, `✓ Entry recorded to Journal/Cogitations.md${note}.`);
+    await dc.followUp(i, `✓ Recorded to Journal >> Cogitations${note}.`);
   } catch (e) {
     console.error(e);
     await dc.followUp(i, `✗ gratitude failed: ${(e as Error).message}`);
