@@ -38,7 +38,7 @@ export async function rollUpZettels(
     if (!text) continue;
     // Stamped captures count by stamp, so a multi-paragraph zettel is one;
     // pre-stamp files fall back to blank-line-separated paragraphs.
-    const stamps = text.match(/^\[\d{2}:\d{2}\] /gm)?.length ?? 0;
+    const stamps = text.match(/^\[\d{2}:\d{2}\]/gm)?.length ?? 0;
     count += stamps || text.split(/\n\s*\n/).length;
     blocks.push(`### ${fmt(day, true, true)}\n\n${text}`);
   }

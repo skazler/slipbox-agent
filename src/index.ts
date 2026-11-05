@@ -75,7 +75,7 @@ export default {
         if (!text) return empty("Nothing to capture.");
 
         ctx.waitUntil(
-          appendToInbox(env, localDate(env), `[${localTime(env)}] ${text}`).then(
+          appendToInbox(env, localDate(env), `[${localTime(env)}]\n${text}`).then(
             () => dc.followUp(i, `✓ ${text}`),
             (e: Error) => {
               console.error(e);
