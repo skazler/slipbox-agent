@@ -12,9 +12,6 @@
     "GITHUB_BRANCH": "main",
     "TIMEZONE": "America/Chicago",
     // Local wall-clock hours the jobs should fire at.
-    "WEEKLY_HOUR": "9",
-    "WEEKLY_MINUTE": "0",
-    "WEEKLY_WEEKDAY": "Sat",
     // Ported from Hermes: the 19:00 gratitude prompt and the news digest
     // (originally 05:00, now 12:00). Both were `agent`-mode jobs posting to
     // Discord.

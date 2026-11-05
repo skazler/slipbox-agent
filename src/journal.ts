@@ -1,47 +1,23 @@
 /**
- * The reflective journals — the evening gratitude entry (written to
- * Journal/Cogitations.md) and the Sunday weekly reflection.
+ * The journals — the evening gratitude entry (Journal/Cogitations.md) and the
+ * Sunday weekly reflection (Journal/Weekly Reflection.md).
  *
- * Ported from the Hermes `gratitude-prompt` and `weekly-reflection-prompt`
- * crons. Each ran on a schedule, DM'd a prompt, and wrote Arete's reflection
- * back into the journal when you replied. A Worker can't hold the WebSocket
- * needed to receive that reply, so each loop inverts: the cron still sends the
- * nudge, but you answer with a slash command and the reflection comes back as
- * the response.
- *
- * Both rituals prepend a dated entry, so they share everything but their field
- * labels and their prompt. The weekly reflection still asks Arete to reflect on
- * it against the whole journal; the gratitude entry is record-only — it goes
- * straight into Obsidian with no reply. Arete's voice lives in the vault, not
- * here, so tuning it is an Obsidian edit rather than a redeploy.
+ * Both are record-only: the cron sends the nudge, you answer with slash
+ * commands, and the entry is written verbatim. No model reads or comments on
+ * either.
  */
 
-import Anthropic from "@anthropic-ai/sdk";
-import { readFile, readVault, writeFile, type Vault } from "./vault";
-
-/**
- * Arete's voice is defined once and loaded ahead of every ritual's own prompt.
- *
- * It used to live inside `gratitude.md`, with `weekly-reflection.md` saying "the
- * voice is the same, read that one" — which quietly made the gratitude prompt
- * the voice definition and coupled the two rituals to each other. Splitting it
- * means one file to change when the voice changes, and neither ritual depends
- * on the other.
- */
-const VOICE = "Systems/prompts/arete.md";
+import { readFile, writeFile } from "./vault";
 
 const RITUALS = {
   gratitude: {
     // Gratitude was collapsed into Cogitations: one daily journal, not two.
     file: "Journal/Cogitations.md",
-    // No prompt: the nightly entry is just recorded, never reflected on.
-    prompt: null,
     fallback: "# Cogitations\n\n---\n",
     commit: "cogitations",
   },
   reflection: {
     file: "Journal/Weekly Reflection.md",
-    prompt: "Systems/prompts/weekly-reflection.md",
     fallback: "# Weekly Reflection Journal\n\n---\n",
     commit: "weekly reflection",
   },
@@ -153,34 +129,6 @@ export async function answer(
   return { done: true, ...recorded };
 }
 
-const PROMPT_PATHS: readonly string[] = [
-  VOICE,
-  ...Object.values(RITUALS).flatMap((r) => (r.prompt ? [r.prompt] : [])),
-];
-
-/**
- * Reflections lean hard on history — they trace arcs across weeks ("June 28 you
- * learned that softness was a costume"), which is most of what makes them worth
- * reading. So the whole journal ships, plus the inbox and slipbox for what's
- * been on his mind. Knowledge/ is excluded outright: it's a reference library
- * and has nothing to say about either ritual.
- *
- * Both journals ship for both rituals on purpose — the weekly reflection draws
- * on the gratitude entries and vice versa; they're the same life.
- */
-function corpus(vault: Vault): string {
-  return [...vault]
-    .filter(
-      ([path]) =>
-        (path.startsWith("Journal/") ||
-          path.startsWith("Inbox/") ||
-          path.startsWith("Slipbox/")) &&
-        !PROMPT_PATHS.includes(path),
-    )
-    .map(([path, content]) => `<file path="${path}">\n${content}\n</file>`)
-    .join("\n\n");
-}
-
 /** "July 26, 2026" — the heading format both journals already use. */
 function longDate(timezone: string): string {
   return new Intl.DateTimeFormat("en-US", {
@@ -207,7 +155,6 @@ function prepend(journal: string, entry: string): string {
 }
 
 export interface JournalEnv {
-  ANTHROPIC_API_KEY: string;
   GITHUB_REPO: string;
   GITHUB_BRANCH: string;
   GITHUB_TOKEN: string;
@@ -215,18 +162,15 @@ export interface JournalEnv {
 }
 
 export interface Recorded {
-  /** Null for a record-only ritual (gratitude). */
-  reflection: string | null;
   /** True when today already had an entry — surfaced so a double-submit is visible. */
   duplicate: boolean;
 }
 
 /**
- * Generate the reflection (if the ritual has one), commit the entry, hand the
- * text back for Discord.
+ * Commit the entry verbatim. No vault read, no model call.
  *
- * Order matters: the file is written before the caller replies, so a Discord
- * failure costs you the notification and never the entry.
+ * The file is written before the caller replies, so a Discord failure costs
+ * the notification and never the entry.
  */
 export async function record(
   env: JournalEnv,
@@ -240,98 +184,13 @@ export async function record(
     .map(([label, value]) => `**${label}:** ${value.trim()}`)
     .join("\n\n");
 
-  if (!spec.prompt) {
-    // Record-only: just this one file, no vault read, no model call.
-    const journal = (await readFile(env, spec.file)) ?? spec.fallback;
-    const duplicate = journal.includes(`\n## ${date}\n`);
-    await writeFile(
-      env,
-      spec.file,
-      prepend(journal, `## ${date}\n\n${written}\n\n---`),
-      `${spec.commit}: ${date}`,
-    );
-    return { reflection: null, duplicate };
-  }
-
-  const vault = await readVault(env);
-
-  const voice = vault.get(VOICE);
-  if (!voice) throw new Error(`missing ${VOICE}`);
-
-  const prompt = vault.get(spec.prompt);
-  if (!prompt) throw new Error(`missing ${spec.prompt}`);
-
-  const journal = vault.get(spec.file) ?? spec.fallback;
+  const journal = (await readFile(env, spec.file)) ?? spec.fallback;
   const duplicate = journal.includes(`\n## ${date}\n`);
-
-  const reflection = (
-    await generate(env, voice, prompt, corpus(vault), date, written)
-  ).trim();
-  if (!reflection) throw new Error("empty reflection");
-
-  const entry =
-    `## ${date}\n\n${written}\n\n` +
-    `**Arete's reflection:** ${reflection}\n\n` +
-    `---`;
-
   await writeFile(
     env,
     spec.file,
-    prepend(journal, entry),
+    prepend(journal, `## ${date}\n\n${written}\n\n---`),
     `${spec.commit}: ${date}`,
   );
-
-  return { reflection, duplicate };
-}
-
-async function generate(
-  env: JournalEnv,
-  voice: string,
-  prompt: string,
-  journalCorpus: string,
-  date: string,
-  written: string,
-): Promise<string> {
-  const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
-
-  const stream = client.messages.stream({
-    // Opus, not Sonnet. The daily review can be Sonnet because routing captures
-    // is a tractable task; these entries' whole value is noticing that today
-    // inverts a pattern running since July 5. That's the same recurrence
-    // problem the weekly review spends Opus on, and it runs once a day at most.
-    model: "claude-opus-5",
-    max_tokens: 8000,
-    system: [
-      {
-        type: "text",
-        text:
-          `Today is ${date} (${env.TIMEZONE}).\n\n` +
-          `The journals and inbox follow — every past entry, so you can see ` +
-          `what recurs and what today breaks.\n\n${journalCorpus}`,
-      },
-      // Voice first, then the ritual's own rules — so a ritual can narrow or
-      // add to the voice, and the ordering makes clear which wins.
-      { type: "text", text: voice },
-      { type: "text", text: prompt },
-    ],
-    output_config: { effort: "high" },
-    messages: [
-      {
-        role: "user",
-        content:
-          `Today's entry, in his words:\n\n${written}\n\n` +
-          `Write the reflection now. Output ONLY the reflection prose — no ` +
-          `heading, no "**Arete's reflection:**" label, no code fences, no ` +
-          `preamble. The runtime adds the label and writes the file.`,
-      },
-    ],
-  });
-
-  const msg = await stream.finalMessage();
-  if (msg.stop_reason === "refusal") throw new Error("refused");
-
-  return msg.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("");
+  return { duplicate };
 }

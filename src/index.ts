@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 import * as dc from "./discord";
 import {
   answer as answerGratitude,
@@ -7,12 +6,11 @@ import {
   VALUE_GOAL,
   type Fields,
   type Question,
-  type Recorded,
   type Ritual,
 } from "./journal";
 import { post as postNewsDigest } from "./news";
 import { rollUpZettels } from "./zettels";
-import { readVault, writeFile, appendToInbox, type Vault } from "./vault";
+import { appendToInbox } from "./vault";
 
 export interface Env {
   ANTHROPIC_API_KEY: string;
@@ -26,9 +24,6 @@ export interface Env {
   DISCORD_PUBLIC_KEY: string;
   DISCORD_USER_ID: string;
   TIMEZONE: string;
-  WEEKLY_HOUR: string;
-  WEEKLY_MINUTE: string;
-  WEEKLY_WEEKDAY: string;
   GRATITUDE_HOUR: string;
   GRATITUDE_MINUTE: string;
   REFLECT_HOUR: string;
@@ -40,8 +35,6 @@ export interface Env {
   ZETTELS_MINUTE: string;
   ZETTELS_WEEKDAY: string;
 }
-
-const REVIEW = "Journal/Review.md";
 
 // ---------------------------------------------------------------- capture
 
@@ -106,9 +99,7 @@ export default {
       }
 
       case "reflect": {
-        // Both halves are required — the reflection's whole move is reading the
-        // lesson against the mistake, and Arete can't do that with one of them.
-        // The value goal is required too: the morning digest shows it all week.
+        // All three are required. The value goal shows atop the news digest all week.
         const learned = opt("learned");
         const mistake = opt("mistake");
         const value = opt("value");
@@ -117,7 +108,7 @@ export default {
         }
 
         ctx.waitUntil(
-          replyWithReflection(env, i, "reflection", [
+          replyWithRecord(env, i, "reflection", [
             ["Learned", learned],
             ["Mistake", mistake],
             [VALUE_GOAL, value],
@@ -159,11 +150,6 @@ export default {
           },
         ),
       );
-    } else if (
-      weekday === env.WEEKLY_WEEKDAY &&
-      near(env.WEEKLY_HOUR, env.WEEKLY_MINUTE)
-    ) {
-      ctx.waitUntil(run(env, "weekly"));
     } else if (
       weekday === env.REFLECT_WEEKDAY &&
       near(env.REFLECT_HOUR, env.REFLECT_MINUTE)
@@ -213,74 +199,26 @@ function empty(content: string): Response {
   });
 }
 
-// ------------------------------------------------------------------ agent
-
-async function run(env: Env, kind: "daily" | "weekly") {
-  try {
-    const vault = await readVault(env);
-
-    const promptPath = `Systems/prompts/${kind}-review.md`;
-    const prompt = vault.get(promptPath);
-    if (!prompt) throw new Error(`missing ${promptPath}`);
-
-    const entry = (await generate(env, kind, prompt, vault)).trim();
-    if (!entry) return;
-
-    let review = vault.get(REVIEW) ?? "# Review\n\n---\n";
-    review = prepend(review, entry);
-
-    let pruned = "";
-    if (kind === "weekly") {
-      const before = countDailies(review);
-      review = dropDailies(review);
-      pruned = `\n**Pruned:** ${before} daily entries folded\n`;
-    }
-
-    await writeFile(env, REVIEW, review + pruned, `${kind} review`);
-    await dc.send(env.DISCORD_WEBHOOK_LEARNING, entry);
-  } catch (e) {
-    console.error(e);
-    await dc.send(
-      env.DISCORD_WEBHOOK_LEARNING,
-      `⚠️ ${kind} review failed: ${(e as Error).message}`,
-    );
-  }
-}
-
 // -------------------------------------------------------------- gratitude
 
 /**
- * Record the entry, then send the reflection back in message-sized pieces.
- *
- * `record` commits before returning, so a Discord failure here costs the
- * notification and never the journal entry — the same ordering the reviews use.
+ * Record the entry verbatim and confirm. `record` commits before returning, so
+ * a Discord failure costs the notification, never the entry.
  */
-async function replyWithReflection(
+async function replyWithRecord(
   env: Env,
   i: dc.Interaction,
   ritual: Ritual,
   fields: Fields,
 ): Promise<void> {
   try {
-    await sendReflection(i, await recordJournal(env, ritual, fields));
+    const { duplicate } = await recordJournal(env, ritual, fields);
+    const note = duplicate ? " (second entry for today — both kept)" : "";
+    await dc.followUp(i, `✓ Recorded to Journal/Weekly Reflection.md${note}.`);
   } catch (e) {
     console.error(e);
     await dc.followUp(i, `✗ ${ritual} failed: ${(e as Error).message}`);
   }
-}
-
-/** Send a recorded reflection back in message-sized pieces. */
-async function sendReflection(
-  i: dc.Interaction,
-  { reflection, duplicate }: Recorded,
-): Promise<void> {
-  const note = duplicate ? "*(second entry for today — both kept)*\n\n" : "";
-  const parts = dc.chunk(note + (reflection ?? "✓ Recorded."));
-
-  await dc.followUp(i, parts[0]);
-  // Discord renders follow-ups in order, so the reflection reads continuously
-  // even though it arrives as several messages.
-  for (const part of parts.slice(1)) await dc.followUpMore(i, part);
 }
 
 /**
@@ -309,116 +247,6 @@ async function replyToAnswer(
     console.error(e);
     await dc.followUp(i, `✗ gratitude failed: ${(e as Error).message}`);
   }
-}
-
-// ------------------------------------------------------------------ review
-
-/**
- * Knowledge/ is a reference library, not thinking material — the agent needs
- * to know a note exists and roughly what it covers, never its body. Four
- * files there (PostgreSQL, Python Data Stack, FastAPI, Vue) are ~45% of the
- * vault by bytes and would dominate every prompt for nothing.
- *
- * Everything the agent actually reasons over — Inbox, Slipbox, Journal,
- * Systems, the board — ships in full.
- */
-function excerpt(path: string, content: string): string {
-  if (!path.startsWith("Knowledge/")) return content;
-  const words = content.split(/\s+/);
-  return words.length <= 200
-    ? content
-    : words.slice(0, 200).join(" ") + "\n…[reference note, truncated]";
-}
-
-async function generate(
-  env: Env,
-  kind: "daily" | "weekly",
-  prompt: string,
-  vault: Vault,
-): Promise<string> {
-  const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
-
-  // The weekly review reads the daily entries in Cogitations, so it gets Journal/ only —
-  // the rest of the vault would be ~60K tokens of slipbox material it's told
-  // to ignore.
-  const corpus = [...vault]
-    .filter(([p]) => !p.startsWith("Systems/prompts/"))
-    .filter(([p]) => kind !== "weekly" || p.startsWith("Journal/"))
-    .map(([p, c]) => `<file path="${p}">\n${excerpt(p, c)}\n</file>`)
-    .join("\n\n");
-
-  const stream = client.messages.stream({
-    // Daily routing is a tractable task on Sonnet 5 and runs 7× as often.
-    // The weekly pass is the one doing real work — recurrence across four
-    // weeks of history — so it keeps Opus. Haiku is not an option: the
-    // corpus is ~90K tokens and only just fits its 200K window today.
-    model: kind === "weekly" ? "claude-opus-5" : "claude-sonnet-5",
-    max_tokens: 32000,
-    // No cache_control: runs are ≥24h apart, far beyond the 1h max TTL, and
-    // daily/weekly are different models (caches are model-scoped). There
-    // would be zero reads — only the 1.25× write premium on every run.
-    system: [
-      {
-        type: "text",
-        text: `Today is ${localDate(env)} (${env.TIMEZONE}).\n\n${kind === "weekly" ? "The journals follow." : "The vault follows. Knowledge/ notes are truncated — they are reference material, not thinking material."}\n\n${corpus}`,
-      },
-      { type: "text", text: prompt },
-    ],
-    // Recurrence detection across a growing corpus is the hard part of this
-    // job; the weekly pass sees four weeks of history and gets more room.
-    output_config: { effort: kind === "weekly" ? "xhigh" : "high" },
-    messages: [
-      {
-        role: "user",
-        content:
-          "Produce the review entry now.\n\n" +
-          "Output ONLY the markdown entry body, starting with its `## ` heading. " +
-          "No preamble, no code fences, no closing commentary. The runtime " +
-          "prepends your output to Journal/Review.md and performs all file " +
-          "mutations — you cannot write files, so do not describe doing so.",
-      },
-    ],
-  });
-
-  const msg = await stream.finalMessage();
-  if (msg.stop_reason === "refusal") throw new Error("refused");
-
-  return msg.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("");
-}
-
-// ------------------------------------------------------------- Review.md
-
-/** Insert a new entry directly below the header's `---` rule. */
-function prepend(review: string, entry: string): string {
-  const i = review.indexOf("\n---\n");
-  if (i === -1) return `${review.trimEnd()}\n\n---\n\n${entry}\n`;
-  const head = review.slice(0, i + 5);
-  const rest = review.slice(i + 5).replace(/^\n+/, "");
-  return `${head}\n${entry}\n\n${rest}`;
-}
-
-const DAILY_SECTION = /^## (?!Week of).*$/;
-
-function sections(review: string): string[] {
-  return review.split(/\n(?=## )/);
-}
-
-function countDailies(review: string): number {
-  return sections(review).filter((s) => DAILY_SECTION.test(s.split("\n")[0]))
-    .length;
-}
-
-/**
- * Daily entries are folded into the weekly one, then dropped. This is what
- * keeps Review.md from becoming a second pile.
- */
-function dropDailies(review: string): string {
-  return sections(review)
-    .filter((s) => !DAILY_SECTION.test(s.split("\n")[0]))
-    .join("\n");
 }
 
 // ------------------------------------------------------------------ time

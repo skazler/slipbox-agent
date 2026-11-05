@@ -42,7 +42,7 @@ flowchart LR
 | :--- | :--- |
 | `/zettel <text>` | Appends a line, stamped `[HH:MM]` local time, to today's `Inbox/` file, creating it if needed |
 | `/gratitude` · `/long-dream` · `/near-dream` · `/relationships` · `/values` | One command per question, answered in any order: what you're grateful for, one "unrealistic" long-term dream and one closer-term dream you're concretely chasing, how you're cultivating genuine relationships, and how you lived your values today (and if not, how you'll improve tomorrow). Each answer is saved to a draft (`Systems/gratitude-draft.json`); after the fifth, the entry is written to `Journal/Cogitations.md` — no agent reply |
-| `/reflect learned:<…> mistake:<…> value:<…>` | All three required — the reflection reads the lesson against the mistake; the value goal shows atop every morning digest for the week |
+| `/reflect learned:<…> mistake:<…> value:<…>` | All three required, recorded verbatim to `Journal/Weekly Reflection.md` — no agent reply; the value goal shows atop every news digest for the week |
 
 Every command is verified before it is read: Discord signs each request with Ed25519 and deliberately sends invalid signatures to check that the endpoint rejects them — one that doesn't gets disabled. After the signature, the caller's user id is checked against a single allowlisted id. Anyone else gets *"Not your slipbox."*
 
@@ -50,7 +50,7 @@ Each command needs at least two GitHub round-trips, which does not fit Discord's
 
 ---
 
-## Schedule — four jobs, one cron expression
+## Schedule — one cron expression
 
 ![Schedule](assets/schedule.png)
 
@@ -61,7 +61,6 @@ The schedule is now a single expression ticking every fifteen minutes. The handl
 | Local | Job |
 | :--- | :--- |
 | 00:00 Sat | Zettel roll-up — every live `Inbox/` file dated before today, verbatim, prepended to `Journal/Review.md`, then moved to `Inbox/archive/` (no model call) |
-| 09:00 Sat | Weekly review of the week's gratitude entries in `Journal/Cogitations.md` |
 | 12:00 | News digest → `#updates`, with the week's value goal on top |
 | 19:00 | Gratitude nudge |
 | 19:30 Sun | Weekly reflection nudge |
@@ -70,13 +69,11 @@ Almost all of the ninety-six daily ticks match nothing and return immediately.
 
 ---
 
-## Review — what the agent actually produces
+## No commentary on the journals
 
-The weekly review reads only `Journal/` and works from the week's gratitude entries in `Journal/Cogitations.md`: a recurrence table of what you were grateful for, themes that are new, themes that have gone quiet, how many days had an entry, and one question.
+The journals are record-only. `/gratitude` and `/reflect` entries are written verbatim, and the weekly review is the zettel roll-up: the week's inbox, copied into `Journal/Review.md` as-is, then archived. No model reads or comments on any of them. The only model call left is the news digest.
 
-It is prepended to `Journal/Review.md`. The weekly pass also drops any old daily entries left in `Review.md`. Inbox archiving belongs to the 00:00 zettel roll-up.
-
-**Prompts are data, not deployment.** The instructions for each job live in the vault (`Systems/prompts/*.md`), not in the Worker. Rewriting how the review reads is a commit to the vault, not a redeploy.
+**Prompts are data, not deployment.** The news digest's instructions live in the vault (`Systems/prompts/news-digest.md`), not in the Worker. Rewriting it is a commit to the vault, not a redeploy.
 
 ---
 
@@ -86,7 +83,7 @@ It is prepended to `Journal/Review.md`. The weekly pass also drops any old daily
 
 **Reference notes are truncated before the prompt is built.** `Knowledge/` is a reference library, not thinking material. Four files there are roughly 45% of the vault by bytes and would dominate every prompt for nothing, so anything under that prefix is cut to 200 words. Everything the agent actually reasons over — `Inbox/`, `Slipbox/`, `Journal/`, `Systems/` — ships in full.
 
-**Models are chosen per job.** Weekly reviews run Opus 5 at xhigh, the weekly journal reflection Opus 5 at high. The news digest uses Opus 5 with the server-side `web_search` tool, which pauses the turn after ten tool iterations; the handler resumes by re-sending with the partial assistant turn appended, bounded to three resumes.
+**One model call.** The news digest uses Opus 5 with the server-side `web_search` tool, which pauses the turn after ten tool iterations; the handler resumes by re-sending with the partial assistant turn appended, bounded to three resumes.
 
 **Writes are ordered so a Discord failure is never a data loss.** The journal entry commits before the reply is sent. A webhook that fails costs the notification, never the entry.
 
@@ -122,7 +119,7 @@ npm run tail       # live logs
 
 `register.sh` registers commands with `PUT`, which replaces the whole set — so a renamed command removes the old name instead of leaving both.
 
-Roughly $3–5/month at current vault size, almost all of it model calls.
+Cost is almost entirely the daily news digest's model calls.
 
 ---
 
