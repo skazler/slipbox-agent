@@ -11,6 +11,7 @@ import {
   type Ritual,
 } from "./journal";
 import { post as postNewsDigest } from "./news";
+import { rollUpZettels } from "./zettels";
 import { readVault, writeFile, appendToInbox, moveFile, type Vault } from "./vault";
 
 export interface Env {
@@ -35,6 +36,9 @@ export interface Env {
   REFLECT_WEEKDAY: string;
   NEWS_HOUR: string;
   NEWS_MINUTE: string;
+  ZETTELS_HOUR: string;
+  ZETTELS_MINUTE: string;
+  ZETTELS_WEEKDAY: string;
 }
 
 const REVIEW = "Journal/Review.md";
@@ -78,7 +82,7 @@ export default {
         if (!text) return empty("Nothing to capture.");
 
         ctx.waitUntil(
-          appendToInbox(env, localDate(env), text).then(
+          appendToInbox(env, localDate(env), `[${localTime(env)}] ${text}`).then(
             () => dc.followUp(i, `✓ ${text}`),
             (e: Error) => {
               console.error(e);
@@ -139,6 +143,22 @@ export default {
       Math.abs(minutes - (Number(h) * 60 + Number(m))) <= 7;
 
     if (
+      weekday === env.ZETTELS_WEEKDAY &&
+      near(env.ZETTELS_HOUR, env.ZETTELS_MINUTE)
+    ) {
+      ctx.waitUntil(
+        rollUpZettels(env, localDate(env)).then(
+          (n) => console.log(`zettel roll-up: ${n} filed to Cogitations`),
+          async (e: Error) => {
+            console.error(e);
+            await dc.send(
+              env.DISCORD_WEBHOOK_LEARNING,
+              `⚠️ weekly zettel roll-up failed: ${e.message}`,
+            );
+          },
+        ),
+      );
+    } else if (
       weekday === env.WEEKLY_WEEKDAY &&
       near(env.WEEKLY_HOUR, env.WEEKLY_MINUTE)
     ) {
@@ -437,6 +457,13 @@ function localParts(env: Env) {
     minutes: hour * 60 + Number(get("minute")),
     weekday: get("weekday"),
   };
+}
+
+/** HH:MM (24h) in the vault's timezone — stamps each /zettel capture. */
+function localTime(env: Env): string {
+  const { minutes } = localParts(env);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`;
 }
 
 /** YYYY-MM-DD in the vault's timezone — matches the Daily Notes format. */

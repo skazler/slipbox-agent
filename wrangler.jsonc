@@ -24,7 +24,13 @@
     "REFLECT_MINUTE": "30",
     "REFLECT_WEEKDAY": "Sun",
     "NEWS_HOUR": "12",
-    "NEWS_MINUTE": "0"
+    "NEWS_MINUTE": "0",
+    // Weekly zettel roll-up: the previous 7 days of Inbox/ copied verbatim
+    // into Journal/Cogitations.md. Must stay before the 09:00 weekly review,
+    // which archives inbox files older than 7 days.
+    "ZETTELS_HOUR": "3",
+    "ZETTELS_MINUTE": "0",
+    "ZETTELS_WEEKDAY": "Sat"
   },
 
   "triggers": {

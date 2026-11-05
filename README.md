@@ -40,7 +40,7 @@ flowchart LR
 
 | Command | Effect |
 | :--- | :--- |
-| `/zettel <text>` | Appends a line to today's `Inbox/` file, creating it if needed |
+| `/zettel <text>` | Appends a line, stamped `[HH:MM]` local time, to today's `Inbox/` file, creating it if needed |
 | `/gratitude` · `/long-dream` · `/near-dream` · `/relationships` · `/values` | One command per question, answered in any order: what you're grateful for, one "unrealistic" long-term dream and one closer-term dream you're concretely chasing, how you're cultivating genuine relationships, and how you lived your values today (and if not, how you'll improve tomorrow). Each answer is saved to a draft (`Systems/gratitude-draft.json`); after the fifth, the entry is written to `Journal/Gratitude.md` — no agent reply |
 | `/reflect learned:<…> mistake:<…> value:<…>` | All three required — the reflection reads the lesson against the mistake; the value goal shows atop every morning digest for the week |
 
@@ -60,6 +60,7 @@ The schedule is now a single expression ticking every fifteen minutes. The handl
 
 | Local | Job |
 | :--- | :--- |
+| 03:00 Sat | Zettel roll-up — the previous week's `Inbox/` captures, verbatim and dated, prepended to `Journal/Cogitations.md` (no model call) |
 | 09:00 Sat | Weekly review of the gratitude entries — also prunes the inbox |
 | 12:00 | News digest → `#updates`, with the week's value goal on top |
 | 19:00 | Gratitude nudge |
