@@ -21,7 +21,7 @@ const INBOX_FILE = /^Inbox\/(\d{4}-\d{2}-\d{2})\.md$/;
 export async function rollUpZettels(
   env: Env,
   today: string,
-): Promise<{ count: number; archived: number }> {
+): Promise<{ count: number; archived: number; range: string; filed: boolean }> {
   const vault = await readVault(env);
 
   // Live inbox files only, oldest first. ISO dates sort lexically.
@@ -29,7 +29,7 @@ export async function rollUpZettels(
     .map((p) => p.match(INBOX_FILE)?.[1])
     .filter((d): d is string => !!d && d < today)
     .sort();
-  if (!days.length) return { count: 0, archived: 0 };
+  if (!days.length) return { count: 0, archived: 0, range: "", filed: false };
 
   const blocks: string[] = [];
   let count = 0;
@@ -46,8 +46,10 @@ export async function rollUpZettels(
   // Normally the previous Sat–Fri; widens if an older file is still waiting.
   const first = days[0] < shift(today, -7) ? days[0] : shift(today, -7);
   const last = shift(today, -1);
-  const heading = `## Week of ${fmt(first, false)} – ${fmt(last, true)} — zettels`;
+  const range = `${fmt(first, false)} – ${fmt(last, true)}`;
+  const heading = `## Week of ${range} — zettels`;
 
+  let filed = false;
   if (blocks.length) {
     const page = vault.get(REVIEW) ?? "# Review\n\n---\n";
     // A double fire or manual rerun must not duplicate the entry.
@@ -59,13 +61,14 @@ export async function rollUpZettels(
       // Commit before archiving: if this throws, nothing gets moved, so
       // nothing reaches the archive without being rolled up.
       await writeFile(env, REVIEW, prepend(page, entry), `zettels: ${first}..${last}`);
+      filed = true;
     }
   }
 
   for (const day of days) {
     await moveFile(env, `Inbox/${day}.md`, `Inbox/archive/${day}.md`, "archive inbox");
   }
-  return { count, archived: days.length };
+  return { count, archived: days.length, range, filed };
 }
 
 function shift(day: string, n: number): string {

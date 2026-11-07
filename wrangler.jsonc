@@ -12,16 +12,12 @@
     "GITHUB_BRANCH": "main",
     "TIMEZONE": "America/Chicago",
     // Local wall-clock hours the jobs should fire at.
-    // Ported from Hermes: the 19:00 gratitude prompt and the news digest
-    // (originally 05:00, now 12:00). Both were `agent`-mode jobs posting to
-    // Discord.
+    // Ported from Hermes: the 19:00 gratitude prompt.
     "GRATITUDE_HOUR": "19",
     "GRATITUDE_MINUTE": "0",
     "REFLECT_HOUR": "19",
     "REFLECT_MINUTE": "30",
     "REFLECT_WEEKDAY": "Sun",
-    "NEWS_HOUR": "12",
-    "NEWS_MINUTE": "0",
     // Weekly zettel roll-up, Sat 00:00: every live Inbox/ file dated before
     // today is copied verbatim into Journal/Review.md, then moved to Inbox/archive/.
     "ZETTELS_HOUR": "0",
@@ -45,10 +41,8 @@
   }
 
   // Secrets (set with `wrangler secret put <NAME>`, never in this file):
-  //   ANTHROPIC_API_KEY
   //   GITHUB_TOKEN               fine-grained PAT, Contents: Read and write
-  //   DISCORD_WEBHOOK_LEARNING   #learning — reviews and both journal nudges
-  //   DISCORD_WEBHOOK_UPDATES    #updates — the midday news digest
+  //   DISCORD_WEBHOOK_LEARNING   #learning — zettel roll-up notice and both journal nudges
   //   DISCORD_PUBLIC_KEY         app's Ed25519 public key, verifies interactions
   //   DISCORD_USER_ID            your user id; anyone else's /zettel is rejected
 }

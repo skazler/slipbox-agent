@@ -105,7 +105,7 @@ COMMANDS='[
       },
       {
         "name": "value",
-        "description": "A value to live by this coming week. Shown atop each morning digest.",
+        "description": "A value to live by this coming week.",
         "type": 3,
         "required": true
       }

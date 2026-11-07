@@ -8,9 +8,6 @@
     "deploy": "wrangler deploy",
     "tail": "wrangler tail"
   },
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.115.0"
-  },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260722.1",
     "typescript": "^5.7.0",

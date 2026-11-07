@@ -8,19 +8,15 @@ import {
   type Question,
   type Ritual,
 } from "./journal";
-import { post as postNewsDigest } from "./news";
 import { rollUpZettels } from "./zettels";
 import { appendToInbox } from "./vault";
 
 export interface Env {
-  ANTHROPIC_API_KEY: string;
   GITHUB_REPO: string;
   GITHUB_BRANCH: string;
   GITHUB_TOKEN: string;
-  // One webhook per destination channel. #learning carries everything
-  // reflective — the reviews and both journal nudges; #updates is news only.
+  // #learning carries the zettel roll-up notice and both journal nudges.
   DISCORD_WEBHOOK_LEARNING: string;
-  DISCORD_WEBHOOK_UPDATES: string;
   DISCORD_PUBLIC_KEY: string;
   DISCORD_USER_ID: string;
   TIMEZONE: string;
@@ -29,8 +25,6 @@ export interface Env {
   REFLECT_HOUR: string;
   REFLECT_MINUTE: string;
   REFLECT_WEEKDAY: string;
-  NEWS_HOUR: string;
-  NEWS_MINUTE: string;
   ZETTELS_HOUR: string;
   ZETTELS_MINUTE: string;
   ZETTELS_WEEKDAY: string;
@@ -99,7 +93,7 @@ export default {
       }
 
       case "reflect": {
-        // All three are required. The value goal shows atop the news digest all week.
+        // All three are required.
         const learned = opt("learned");
         const mistake = opt("mistake");
         const value = opt("value");
@@ -139,8 +133,20 @@ export default {
     ) {
       ctx.waitUntil(
         rollUpZettels(env, localDate(env)).then(
-          ({ count, archived }) =>
-            console.log(`zettel roll-up: ${count} filed to Review.md, ${archived} inbox files archived`),
+          async ({ count, archived, range, filed }) => {
+            console.log(`zettel roll-up: ${count} filed to Review.md, ${archived} inbox files archived`);
+            // Silent on a rerun that found the entry already written — the
+            // first run already announced it.
+            if (!archived) {
+              await dc.send(env.DISCORD_WEBHOOK_LEARNING, "📥 Weekly zettel roll-up: inbox was empty, nothing to file.");
+            } else if (filed) {
+              await dc.send(
+                env.DISCORD_WEBHOOK_LEARNING,
+                `📥 Weekly zettel roll-up: ${count} zettel${count === 1 ? "" : "s"} (${range}) ` +
+                  `copied verbatim to Journal >> Review, ${archived} inbox file${archived === 1 ? "" : "s"} archived.`,
+              );
+            }
+          },
           async (e: Error) => {
             console.error(e);
             await dc.send(
@@ -157,8 +163,6 @@ export default {
       ctx.waitUntil(dc.send(env.DISCORD_WEBHOOK_LEARNING, REFLECT_NUDGE));
     } else if (near(env.GRATITUDE_HOUR, env.GRATITUDE_MINUTE)) {
       ctx.waitUntil(dc.send(env.DISCORD_WEBHOOK_LEARNING, GRATITUDE_NUDGE));
-    } else if (near(env.NEWS_HOUR, env.NEWS_MINUTE)) {
-      ctx.waitUntil(postNewsDigest(env, localDate(env)));
     }
     // Otherwise this tick isn't a job time — do nothing. Most of them aren't.
   },
@@ -188,8 +192,7 @@ const GRATITUDE_NUDGE =
 const REFLECT_NUDGE =
   "🗓️ One thing you learned this week, one mistake you made, and a value " +
   "to live by this coming week.\n" +
-  "Reply with `/reflect learned:<…> mistake:<…> value:<…>` — the value " +
-  "shows at the top of every morning digest until next Sunday.";
+  "Reply with `/reflect learned:<…> mistake:<…> value:<…>`.";
 
 /** An immediate, private reply — used when a command arrives with no usable input. */
 function empty(content: string): Response {
