@@ -59,7 +59,7 @@ The schedule is now a single expression ticking every fifteen minutes. The handl
 
 | Local | Job |
 | :--- | :--- |
-| 00:00 Sat | Zettel roll-up — every live `Inbox/` file dated before today, verbatim, prepended to `Journal/Review.md`, then moved to `Inbox/archive/` (no model call), then a notice to `#learning` |
+| 00:00 Sat | Zettel roll-up — every live `Inbox/` file dated before today, verbatim, prepended to `Journal/Zettels Review.md`, then moved to `Inbox/archive/` (no model call), then a notice to `#learning` |
 | 19:00 | Gratitude nudge |
 | 19:30 Sun | Weekly reflection nudge |
 
@@ -69,7 +69,7 @@ Almost all of the ninety-six daily ticks match nothing and return immediately.
 
 ## No commentary on the journals
 
-The journals are record-only. `/gratitude` and `/reflect` entries are written verbatim, and the weekly review is the zettel roll-up: the week's inbox, copied into `Journal/Review.md` as-is, then archived. No model reads or comments on any of them, and the Worker makes no model calls at all.
+The journals are record-only. `/gratitude` and `/reflect` entries are written verbatim, and the weekly review is the zettel roll-up: the week's inbox, copied into `Journal/Zettels Review.md` as-is, then archived. No model reads or comments on any of them, and the Worker makes no model calls at all.
 
 ---
 

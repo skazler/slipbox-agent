@@ -123,7 +123,7 @@ function longDate(timezone: string): string {
 /**
  * Insert a new entry directly below the header rule.
  *
- * Entries in these files are `---`-separated, unlike Review.md, so the
+ * Entries in these files are `---`-separated, unlike Zettels Review.md, so the
  * separator travels with the entry rather than being assumed between them.
  */
 function prepend(journal: string, entry: string): string {

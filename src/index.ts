@@ -134,7 +134,7 @@ export default {
       ctx.waitUntil(
         rollUpZettels(env, localDate(env)).then(
           async ({ count, archived, range, filed }) => {
-            console.log(`zettel roll-up: ${count} filed to Review.md, ${archived} inbox files archived`);
+            console.log(`zettel roll-up: ${count} filed to Zettels Review.md, ${archived} inbox files archived`);
             // Silent on a rerun that found the entry already written — the
             // first run already announced it.
             if (!archived) {
@@ -143,7 +143,7 @@ export default {
               await dc.send(
                 env.DISCORD_WEBHOOK_LEARNING,
                 `📥 Weekly zettel roll-up: ${count} zettel${count === 1 ? "" : "s"} (${range}) ` +
-                  `copied verbatim to Journal >> Review, ${archived} inbox file${archived === 1 ? "" : "s"} archived.`,
+                  `copied verbatim to Journal >> Zettels Review, ${archived} inbox file${archived === 1 ? "" : "s"} archived.`,
               );
             }
           },

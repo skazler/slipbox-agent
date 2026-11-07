@@ -19,7 +19,7 @@
     "REFLECT_MINUTE": "30",
     "REFLECT_WEEKDAY": "Sun",
     // Weekly zettel roll-up, Sat 00:00: every live Inbox/ file dated before
-    // today is copied verbatim into Journal/Review.md, then moved to Inbox/archive/.
+    // today is copied verbatim into Journal/Zettels Review.md, then moved to Inbox/archive/.
     "ZETTELS_HOUR": "0",
     "ZETTELS_MINUTE": "0",
     "ZETTELS_WEEKDAY": "Sat"
