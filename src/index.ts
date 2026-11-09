@@ -2,6 +2,7 @@ import * as dc from "./discord";
 import {
   answer as answerGratitude,
   GRATITUDE_QUESTIONS,
+  latestValueGoal,
   record as recordJournal,
   VALUE_GOAL,
   type Fields,
@@ -15,7 +16,8 @@ export interface Env {
   GITHUB_REPO: string;
   GITHUB_BRANCH: string;
   GITHUB_TOKEN: string;
-  // #learning carries the zettel roll-up notice and both journal nudges.
+  // #learning carries the zettel roll-up notice, both journal nudges and the
+  // morning value reminder.
   DISCORD_WEBHOOK_LEARNING: string;
   DISCORD_PUBLIC_KEY: string;
   DISCORD_USER_ID: string;
@@ -25,6 +27,8 @@ export interface Env {
   REFLECT_HOUR: string;
   REFLECT_MINUTE: string;
   REFLECT_WEEKDAY: string;
+  VALUE_HOUR: string;
+  VALUE_MINUTE: string;
   ZETTELS_HOUR: string;
   ZETTELS_MINUTE: string;
   ZETTELS_WEEKDAY: string;
@@ -163,6 +167,8 @@ export default {
       ctx.waitUntil(dc.send(env.DISCORD_WEBHOOK_LEARNING, REFLECT_NUDGE));
     } else if (near(env.GRATITUDE_HOUR, env.GRATITUDE_MINUTE)) {
       ctx.waitUntil(dc.send(env.DISCORD_WEBHOOK_LEARNING, GRATITUDE_NUDGE));
+    } else if (near(env.VALUE_HOUR, env.VALUE_MINUTE)) {
+      ctx.waitUntil(sendValueReminder(env));
     }
     // Otherwise this tick isn't a job time — do nothing. Most of them aren't.
   },
@@ -194,6 +200,21 @@ const REFLECT_NUDGE =
   "to live by this coming week.\n" +
   "Reply with `/reflect learned:<…> mistake:<…> value:<…>`.";
 
+/**
+ * This week's value goal, exactly as written in the latest `/reflect`. One
+ * GitHub read, no model call. Silent when there's no value goal to send — an
+ * empty reminder is noise.
+ */
+async function sendValueReminder(env: Env): Promise<void> {
+  try {
+    const value = await latestValueGoal(env);
+    if (value) await dc.send(env.DISCORD_WEBHOOK_LEARNING, `🌅 ${value}`);
+  } catch (e) {
+    console.error(e);
+    await dc.send(env.DISCORD_WEBHOOK_LEARNING, `⚠️ value reminder failed: ${(e as Error).message}`);
+  }
+}
+
 /** An immediate, private reply — used when a command arrives with no usable input. */
 function empty(content: string): Response {
   return dc.json({
@@ -217,7 +238,7 @@ async function replyWithRecord(
   try {
     const { duplicate } = await recordJournal(env, ritual, fields);
     const note = duplicate ? " (second entry for today — both kept)" : "";
-    await dc.followUp(i, `✓ Recorded to Journal >> Weekly Reflection${note}.`);
+    await dc.followUp(i, `✓ Recorded to Journal >> Cogitations (Weekly Reflection)${note}.`);
   } catch (e) {
     console.error(e);
     await dc.followUp(i, `✗ ${ritual} failed: ${(e as Error).message}`);

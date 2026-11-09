@@ -1,6 +1,8 @@
 /**
- * The journals — the evening gratitude entry (Journal/Cogitations.md) and the
- * Sunday weekly reflection (Journal/Weekly Reflection.md).
+ * The journal — Journal/Cogitations.md holds both the evening gratitude entry
+ * and the Sunday weekly reflection. They share the page but not the heading: a
+ * reflection is headed `## <date> — Weekly Reflection`, so the two stay apart
+ * on a Sunday when both are written.
  *
  * Both are record-only: the cron sends the nudge, you answer with slash
  * commands, and the entry is written verbatim. No model reads or comments on
@@ -9,18 +11,14 @@
 
 import { readFile, writeFile } from "./vault";
 
+const JOURNAL = "Journal/Cogitations.md";
+const FALLBACK = "# Cogitations\n\n---\n";
+
 const RITUALS = {
-  gratitude: {
-    // Gratitude was collapsed into Cogitations: one daily journal, not two.
-    file: "Journal/Cogitations.md",
-    fallback: "# Cogitations\n\n---\n",
-    commit: "cogitations",
-  },
-  reflection: {
-    file: "Journal/Weekly Reflection.md",
-    fallback: "# Weekly Reflection Journal\n\n---\n",
-    commit: "weekly reflection",
-  },
+  // Gratitude was collapsed into Cogitations: one daily journal, not two.
+  gratitude: { label: "", commit: "cogitations" },
+  // So was the weekly reflection, in November 2026 — under its own label.
+  reflection: { label: " — Weekly Reflection", commit: "weekly reflection" },
 } as const;
 
 export type Ritual = keyof typeof RITUALS;
@@ -165,13 +163,40 @@ export async function record(
     .map(([label, value]) => `**${label}:** ${value.trim()}`)
     .join("\n\n");
 
-  const journal = (await readFile(env, spec.file)) ?? spec.fallback;
-  const duplicate = journal.includes(`\n## ${date}\n`);
+  const heading = `## ${date}${spec.label}`;
+  const journal = (await readFile(env, JOURNAL)) ?? FALLBACK;
+  const duplicate = journal.includes(`\n${heading}\n`);
   await writeFile(
     env,
-    spec.file,
-    prepend(journal, `## ${date}\n\n${written}\n\n---`),
+    JOURNAL,
+    prepend(journal, `${heading}\n\n${written}\n\n---`),
     `${spec.commit}: ${date}`,
   );
   return { duplicate };
+}
+
+/**
+ * The value goal from the most recent weekly reflection, verbatim, or null if
+ * there isn't one. Entries are newest-first, so the first labelled heading is
+ * the latest; a reflection without a value goal (some early ones) yields null
+ * rather than reaching back to an older week's.
+ */
+export async function latestValueGoal(env: JournalEnv): Promise<string | null> {
+  const journal = await readFile(env, JOURNAL);
+  if (!journal) return null;
+
+  const heading = `\n## `;
+  const label = RITUALS.reflection.label;
+  let i = journal.indexOf(heading);
+  while (i !== -1) {
+    const end = journal.indexOf("\n", i + 1);
+    if (journal.slice(i + 1, end).endsWith(label)) {
+      const next = journal.indexOf(heading, end);
+      const entry = journal.slice(end, next === -1 ? undefined : next);
+      const m = entry.match(new RegExp(`^\\*\\*${VALUE_GOAL}:\\*\\* (.+)$`, "m"));
+      return m ? m[1].trim() : null;
+    }
+    i = journal.indexOf(heading, end);
+  }
+  return null;
 }
