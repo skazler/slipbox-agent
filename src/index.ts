@@ -84,6 +84,24 @@ export default {
         return dc.json({ type: dc.Reply.DEFERRED });
       }
 
+      case "todo": {
+        const text = opt("text");
+        if (!text) return empty("Nothing to add.");
+
+        ctx.waitUntil(
+          // Same inbox as /zettel; the " todo" after the stamp is what the
+          // weekly roll-up sorts on.
+          appendToInbox(env, localDate(env), `[${localTime(env)}] todo\n${text}`).then(
+            () => dc.followUp(i, `✓ todo: ${text}`),
+            (e: Error) => {
+              console.error(e);
+              return dc.followUp(i, `✗ todo failed: ${e.message}`);
+            },
+          ),
+        );
+        return dc.json({ type: dc.Reply.DEFERRED });
+      }
+
       case "gratitude":
       case "long-dream":
       case "near-dream":
@@ -137,8 +155,8 @@ export default {
     ) {
       ctx.waitUntil(
         rollUpZettels(env, localDate(env)).then(
-          async ({ count, archived, range, filed }) => {
-            console.log(`zettel roll-up: ${count} filed to Zettels Review.md, ${archived} inbox files archived`);
+          async ({ zettels, todos, archived, range, filed }) => {
+            console.log(`zettel roll-up: ${zettels} zettels + ${todos} todos filed to Zettels Review.md, ${archived} inbox files archived`);
             // Silent on a rerun that found the entry already written — the
             // first run already announced it.
             if (!archived) {
@@ -146,7 +164,8 @@ export default {
             } else if (filed) {
               await dc.send(
                 env.DISCORD_WEBHOOK_LEARNING,
-                `📥 Weekly zettel roll-up: ${count} zettel${count === 1 ? "" : "s"} (${range}) ` +
+                `📥 Weekly zettel roll-up: ${zettels} zettel${zettels === 1 ? "" : "s"} and ` +
+                  `${todos} todo${todos === 1 ? "" : "s"} (${range}) ` +
                   `copied verbatim to Journal >> Zettels Review, ${archived} inbox file${archived === 1 ? "" : "s"} archived.`,
               );
             }

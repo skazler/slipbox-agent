@@ -1,9 +1,10 @@
 /**
  * Weekly zettel roll-up → Journal/Zettels Review.md, then archive.
  *
- * No model call. Every `/zettel` capture lands in `Inbox/YYYY-MM-DD.md`; this
+ * No model call. Every `/zettel` and `/todo` capture lands in `Inbox/YYYY-MM-DD.md`; this
  * job copies every live inbox file dated before today, verbatim, into one
- * weekly Zettels Review entry with a heading per day, then moves those same files into
+ * weekly Zettels Review entry split into Zettels and Todos (`/todo` captures
+ * share the inbox, marked `[HH:MM] todo`), then moves those same files into
  * Inbox/archive/. Inbox/archive/ is never read — what's there was already
  * rolled up.
  *
@@ -21,7 +22,7 @@ const INBOX_FILE = /^Inbox\/(\d{4}-\d{2}-\d{2})\.md$/;
 export async function rollUpZettels(
   env: Env,
   today: string,
-): Promise<{ count: number; archived: number; range: string; filed: boolean }> {
+): Promise<{ zettels: number; todos: number; archived: number; range: string; filed: boolean }> {
   const vault = await readVault(env);
 
   // Live inbox files only, oldest first. ISO dates sort lexically.
@@ -29,35 +30,42 @@ export async function rollUpZettels(
     .map((p) => p.match(INBOX_FILE)?.[1])
     .filter((d): d is string => !!d && d < today)
     .sort();
-  if (!days.length) return { count: 0, archived: 0, range: "", filed: false };
+  if (!days.length) return { zettels: 0, todos: 0, archived: 0, range: "", filed: false };
 
-  const blocks: string[] = [];
-  let count = 0;
+  const zettels: string[] = [];
+  const todos: string[] = [];
   for (const day of days) {
-    const text = vault.get(`Inbox/${day}.md`)!.trim();
-    if (!text) continue;
-    // Stamped captures count by stamp, so a multi-paragraph zettel is one;
-    // pre-stamp files fall back to blank-line-separated paragraphs.
-    const stamps = text.match(/^\[\d{2}:\d{2}\]/gm)?.length ?? 0;
-    count += stamps || text.split(/\n\s*\n/).length;
-    blocks.push(`### ${fmt(day, true, true)}\n\n${text}`);
+    for (const item of parse(vault.get(`Inbox/${day}.md`)!)) {
+      // Day and time are a quiet label, not structure — the split that
+      // matters is zettel vs todo.
+      const when = `<small>${fmt(day, false, true)}${item.time ? ` · ${item.time}` : ""}</small>`;
+      if (item.todo) {
+        todos.push(`- [ ] ${item.text.replace(/\s*\n\s*/g, " ")} ${when}`);
+      } else {
+        zettels.push(`${when}\n${item.text}`);
+      }
+    }
   }
 
   // Normally the previous Sat–Fri; widens if an older file is still waiting.
   const first = days[0] < shift(today, -7) ? days[0] : shift(today, -7);
   const last = shift(today, -1);
   const range = `${fmt(first, false)} – ${fmt(last, true)}`;
-  const heading = `## Week of ${range} — zettels`;
+  const heading = `## Week of ${range} — zettels & todos`;
 
   let filed = false;
-  if (blocks.length) {
+  if (zettels.length || todos.length) {
     const page = vault.get(REVIEW) ?? "# Zettels Review\n\n---\n";
     // A double fire or manual rerun must not duplicate the entry.
     if (!page.includes(`\n${heading}\n`)) {
+      const sections = [
+        `### Zettels\n\n${zettels.join("\n\n") || "*None.*"}`,
+        `### Todos\n\n${todos.join("\n") || "*None.*"}`,
+      ];
       const entry =
         `${heading}\n\n` +
-        `*${count} zettel${count === 1 ? "" : "s"}, copied verbatim from Inbox/.*\n\n` +
-        blocks.join("\n\n");
+        `*${plural(zettels.length, "zettel")}, ${plural(todos.length, "todo")}, copied verbatim from Inbox/.*\n\n` +
+        sections.join("\n\n");
       // Commit before archiving: if this throws, nothing gets moved, so
       // nothing reaches the archive without being rolled up.
       await writeFile(env, REVIEW, prepend(page, entry), `zettels: ${first}..${last}`);
@@ -68,21 +76,60 @@ export async function rollUpZettels(
   for (const day of days) {
     await moveFile(env, `Inbox/${day}.md`, `Inbox/archive/${day}.md`, "archive inbox");
   }
-  return { count, archived: days.length, range, filed };
+  return { zettels: zettels.length, todos: todos.length, archived: days.length, range, filed };
+}
+
+const STAMP = /^\[(\d{2}:\d{2})\]( todo)?[ \t]*$/;
+
+/**
+ * Split an inbox file into captures. `/zettel` writes `[HH:MM]` on its own
+ * line and `/todo` writes `[HH:MM] todo`; each capture runs to the next stamp,
+ * so a multi-paragraph zettel stays one. Text before the first stamp (files
+ * from before stamping) is one unstamped zettel per paragraph.
+ */
+function parse(file: string): { time: string; todo: boolean; text: string }[] {
+  const out: { time: string; todo: boolean; text: string }[] = [];
+  let cur: { time: string; todo: boolean; lines: string[] } | null = null;
+  const loose: string[] = [];
+  const flush = () => {
+    const text = cur?.lines.join("\n").trim();
+    if (cur && text) out.push({ time: cur.time, todo: cur.todo, text });
+  };
+  for (const line of file.split("\n")) {
+    const m = line.match(STAMP);
+    if (m) {
+      flush();
+      cur = { time: m[1], todo: !!m[2], lines: [] };
+    } else if (cur) {
+      cur.lines.push(line);
+    } else {
+      loose.push(line);
+    }
+  }
+  flush();
+  const unstamped = loose.join("\n").trim();
+  const pre = unstamped
+    ? unstamped.split(/\n\s*\n/).map((text) => ({ time: "", todo: false, text: text.trim() }))
+    : [];
+  return [...pre, ...out];
+}
+
+function plural(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? "" : "s"}`;
 }
 
 function shift(day: string, n: number): string {
   return new Date(Date.parse(day + "T00:00:00Z") + n * 864e5).toISOString().slice(0, 10);
 }
 
-/** "Oct 31" / "Nov 6, 2026" / "Saturday, Oct 31, 2026". Dates are UTC-anchored. */
+/** "Oct 31" / "Nov 6, 2026" / "Sat, Oct 31". Dates are UTC-anchored. */
 function fmt(day: string, year: boolean, weekday = false): string {
   return new Date(day + "T12:00:00Z").toLocaleDateString("en-US", {
     timeZone: "UTC",
     month: "short",
     day: "numeric",
     ...(year ? { year: "numeric" } : {}),
-    ...(weekday ? { weekday: "long" } : {}),
+    ...(weekday ? { weekday: "short" } : {}),
   });
 }
 

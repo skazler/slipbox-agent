@@ -38,6 +38,16 @@ COMMANDS='[
     }]
   },
   {
+    "name": "todo",
+    "description": "Capture a todo into the inbox; filed under Todos in the weekly review",
+    "options": [{
+      "name": "text",
+      "description": "The todo.",
+      "type": 3,
+      "required": true
+    }]
+  },
+  {
     "name": "gratitude",
     "description": "Gratitude 1/5: what you are grateful for today",
     "options": [{

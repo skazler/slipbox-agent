@@ -40,6 +40,7 @@ flowchart LR
 | Command | Effect |
 | :--- | :--- |
 | `/zettel <text>` | Appends a line, stamped `[HH:MM]` local time, to today's `Inbox/` file, creating it if needed |
+| `/todo <text>` | Same inbox as `/zettel`, stamped `[HH:MM] todo`, so the weekly roll-up files it under **Todos** |
 | `/gratitude` · `/long-dream` · `/near-dream` · `/relationships` · `/values` | One command per question, answered in any order: what you're grateful for, one "unrealistic" long-term dream and one closer-term dream you're concretely chasing, how you're cultivating genuine relationships, and how you lived your values today (and if not, how you'll improve tomorrow). Each answer is saved to a draft (`Systems/gratitude-draft.json`); after the fifth, the entry is written to `Journal/Cogitations.md` — no agent reply |
 | `/reflect learned:<…> mistake:<…> value:<…>` | All three required, recorded verbatim to `Journal/Cogitations.md` under a `## <date> — Weekly Reflection` heading, so it sits beside that day's gratitude entry without being mistaken for it — no agent reply |
 
@@ -59,7 +60,7 @@ The schedule is now a single expression ticking every fifteen minutes. The handl
 
 | Local | Job |
 | :--- | :--- |
-| 00:00 Sat | Zettel roll-up — every live `Inbox/` file dated before today, verbatim, prepended to `Journal/Zettels Review.md`, then moved to `Inbox/archive/` (no model call), then a notice to `#learning` |
+| 00:00 Sat | Zettel roll-up — every live `Inbox/` file dated before today, verbatim, prepended to `Journal/Zettels Review.md` in two sections, **Zettels** and **Todos** (day and time as a small label on each item, not as headings), then moved to `Inbox/archive/` (no model call), then a notice to `#learning` |
 | 05:30 | Value reminder — the `Value goal` from the latest weekly reflection, verbatim, to `#learning`. One GitHub read, no model call; silent if the latest reflection has none |
 | 19:00 | Gratitude nudge |
 | 19:30 Sun | Weekly reflection nudge |
