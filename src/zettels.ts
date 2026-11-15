@@ -16,6 +16,9 @@ import { moveFile, readVault, writeFile, type Env } from "./vault";
 
 // The heading starts with "Week of", so Zettels Review.md's daily-entry pruning keeps it.
 const REVIEW = "Journal/Zettels Review.md";
+/** Day-and-time label: smaller than <small>, and faded so it reads as metadata. */
+const LABEL = "font-size:0.7em;opacity:0.4";
+
 /** Asked of every week's captures, below the todos. */
 const QUESTIONS = ["What's noise?", "What's for you?", "What's logistics?"];
 const INBOX_FILE = /^Inbox\/(\d{4}-\d{2}-\d{2})\.md$/;
@@ -40,7 +43,7 @@ export async function rollUpZettels(
     for (const item of parse(vault.get(`Inbox/${day}.md`)!)) {
       // Day and time are a quiet label, not structure — the split that
       // matters is zettel vs todo.
-      const when = `<small>${fmt(day, false, true)}${item.time ? ` · ${item.time}` : ""}</small>`;
+      const when = `<span style="${LABEL}">${fmt(day, false, true)}${item.time ? ` · ${item.time}` : ""}</span>`;
       if (item.todo) {
         todos.push(`- [ ] ${item.text.replace(/\s*\n\s*/g, " ")} ${when}`);
       } else {
