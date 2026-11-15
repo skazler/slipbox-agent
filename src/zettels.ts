@@ -16,6 +16,8 @@ import { moveFile, readVault, writeFile, type Env } from "./vault";
 
 // The heading starts with "Week of", so Zettels Review.md's daily-entry pruning keeps it.
 const REVIEW = "Journal/Zettels Review.md";
+/** Asked of every week's captures, below the todos. */
+const QUESTIONS = ["What's noise?", "What's for you?", "What's logistics?"];
 const INBOX_FILE = /^Inbox\/(\d{4}-\d{2}-\d{2})\.md$/;
 
 /** `today` is the local YYYY-MM-DD the job fires on. */
@@ -61,6 +63,7 @@ export async function rollUpZettels(
       const sections = [
         `### Zettels\n\n${zettels.join("\n\n") || "*None.*"}`,
         `### Todos\n\n${todos.join("\n") || "*None.*"}`,
+        `### Questions to ask myself\n\n${QUESTIONS.map((q, n) => `${n + 1}. ${q}`).join("\n")}`,
       ];
       const entry =
         `${heading}\n\n` +
