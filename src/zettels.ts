@@ -44,7 +44,8 @@ export async function rollUpZettels(
       if (item.todo) {
         todos.push(`- [ ] ${item.text.replace(/\s*\n\s*/g, " ")} ${when}`);
       } else {
-        zettels.push(`${item.text} ${when}`);
+        // Continuation lines are indented so a multi-line zettel stays one bullet.
+        zettels.push(`- ${item.text.replace(/\n(?=.)/g, "\n  ")} ${when}`);
       }
     }
   }
@@ -61,7 +62,7 @@ export async function rollUpZettels(
     // A double fire or manual rerun must not duplicate the entry.
     if (!page.includes(`\n${heading}\n`)) {
       const sections = [
-        `### Zettels\n\n${zettels.join("\n\n") || "*None.*"}`,
+        `### Zettels\n\n${zettels.join("\n") || "*None.*"}`,
         `### Todos\n\n${todos.join("\n") || "*None.*"}`,
         `### Questions to ask myself\n\n${QUESTIONS.map((q, n) => `${n + 1}. ${q}`).join("\n")}`,
       ];
