@@ -71,7 +71,7 @@ Almost all of the ninety-six daily ticks match nothing and return immediately.
 
 ## No commentary on the journals
 
-The journals are record-only. `/gratitude` and `/reflect` entries are written verbatim, and the weekly review is the zettel roll-up: the week's inbox, copied into `Journal/Zettels Review.md` as-is, then archived. No model reads or comments on any of them, and the Worker makes no model calls at all.
+The journals are record-only. `/gratitude` and `/reflect` entries are written verbatim, and the weekly review is the zettel roll-up: the week's inbox — `/zettel` and `/todo` captures — copied into `Journal/Zettels Review.md` as-is, sorted only into Zettels and Todos, then archived. No model reads or comments on any of them, and the Worker makes no model calls at all.
 
 ---
 
