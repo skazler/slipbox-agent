@@ -60,7 +60,7 @@ The schedule is now a single expression ticking every fifteen minutes. The handl
 
 | Local | Job |
 | :--- | :--- |
-| 00:00 Sat | Zettel roll-up — every live `Inbox/` file dated before today, verbatim, prepended to `Journal/Zettels Review.md` in sections **Zettels**, **Todos**, then **Questions to ask myself** (what's noise? what's for you? what's logistics?), with day and time as a small label on each item rather than as headings, then moved to `Inbox/archive/` (no model call), then a notice to `#learning` |
+| 00:00 Sat | Zettel roll-up — every live `Inbox/` file dated before today, verbatim, prepended to `Journal/Zettels Review.md` in sections **Zettels**, **Todos**, then **Ask yourself** (what's noise? what's for you? what's logistics?), with day and time as a small label on each item rather than as headings, then moved to `Inbox/archive/` (no model call), then a notice to `#learning` |
 | 05:30 | Value reminder — the `Value goal` from the latest weekly reflection, verbatim, to `#learning`. One GitHub read, no model call; silent if the latest reflection has none |
 | 19:00 | Gratitude nudge |
 | 19:30 Sun | Weekly reflection nudge |

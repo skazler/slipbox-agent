@@ -67,7 +67,7 @@ export async function rollUpZettels(
       const sections = [
         `### Zettels\n\n${zettels.join("\n") || "*None.*"}`,
         `### Todos\n\n${todos.join("\n") || "*None.*"}`,
-        `### Questions to ask myself\n\n${QUESTIONS.map((q, n) => `${n + 1}. ${q}`).join("\n")}`,
+        `### Ask yourself\n\n${QUESTIONS.map((q, n) => `${n + 1}. ${q}`).join("\n")}`,
       ];
       const entry =
         `${heading}\n\n` +
