@@ -1,9 +1,9 @@
 /**
- * Weekly zettel roll-up → Journal/Zettels Review.md, then archive.
+ * Weekly zettel roll-up → Journal/Weekly Review.md, then archive.
  *
  * No model call. Every `/zettel` and `/todo` capture lands in `Inbox/YYYY-MM-DD.md`; this
  * job copies every live inbox file dated before today, verbatim, into one
- * weekly Zettels Review entry split into Zettels and Todos (`/todo` captures
+ * Weekly Review entry split into Zettels and Todos (`/todo` captures
  * share the inbox, marked `[HH:MM] todo`), then moves those same files into
  * Inbox/archive/. Inbox/archive/ is never read — what's there was already
  * rolled up.
@@ -14,8 +14,8 @@
 
 import { moveFile, readVault, writeFile, type Env } from "./vault";
 
-// The heading starts with "Week of", so Zettels Review.md's daily-entry pruning keeps it.
-const REVIEW = "Journal/Zettels Review.md";
+// The heading starts with "Week of", so Weekly Review.md's daily-entry pruning keeps it.
+const REVIEW = "Journal/Weekly Review.md";
 /** Day-and-time label: smaller than <small>, and faded so it reads as metadata. */
 const LABEL = "font-size:0.7em;opacity:0.4";
 
@@ -61,7 +61,7 @@ export async function rollUpZettels(
 
   let filed = false;
   if (zettels.length || todos.length) {
-    const page = vault.get(REVIEW) ?? "# Zettels Review\n\n---\n";
+    const page = vault.get(REVIEW) ?? "# Weekly Review\n\n---\n";
     // A double fire or manual rerun must not duplicate the entry.
     if (!page.includes(`\n${heading}\n`)) {
       const sections = [
