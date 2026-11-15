@@ -44,7 +44,7 @@ export async function rollUpZettels(
       if (item.todo) {
         todos.push(`- [ ] ${item.text.replace(/\s*\n\s*/g, " ")} ${when}`);
       } else {
-        zettels.push(`${when}\n${item.text}`);
+        zettels.push(`${item.text} ${when}`);
       }
     }
   }
