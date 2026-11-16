@@ -21,8 +21,10 @@
     // Daily 05:30: the value goal from the latest /reflect, verbatim.
     "VALUE_HOUR": "5",
     "VALUE_MINUTE": "30",
-    // Weekly zettel roll-up, Sat 00:00: every live Inbox/ file dated before
-    // today is copied verbatim into Journal/Weekly Review.md, then moved to Inbox/archive/.
+    // Nightly zettel roll-up, 00:00: every live Inbox/ file dated before today
+    // is copied verbatim into its week's entry in Journal/Weekly Review.md,
+    // then moved to Inbox/archive/. Weeks run Sat–Fri; only the
+    // ZETTELS_WEEKDAY run, which completes the week, posts the notice.
     "ZETTELS_HOUR": "0",
     "ZETTELS_MINUTE": "0",
     "ZETTELS_WEEKDAY": "Sat"
@@ -45,7 +47,7 @@
 
   // Secrets (set with `wrangler secret put <NAME>`, never in this file):
   //   GITHUB_TOKEN               fine-grained PAT, Contents: Read and write
-  //   DISCORD_WEBHOOK_LEARNING   #learning — zettel roll-up notice, journal nudges, value reminder
+  //   DISCORD_WEBHOOK_LEARNING   #learning — weekly review notice, journal nudges, value reminder
   //   DISCORD_PUBLIC_KEY         app's Ed25519 public key, verifies interactions
   //   DISCORD_USER_ID            your user id; anyone else's /zettel is rejected
 }

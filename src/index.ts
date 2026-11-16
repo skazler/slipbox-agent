@@ -149,24 +149,22 @@ export default {
     const near = (h: string, m: string) =>
       Math.abs(minutes - (Number(h) * 60 + Number(m))) <= 7;
 
-    if (
-      weekday === env.ZETTELS_WEEKDAY &&
-      near(env.ZETTELS_HOUR, env.ZETTELS_MINUTE)
-    ) {
+    if (near(env.ZETTELS_HOUR, env.ZETTELS_MINUTE)) {
+      // Nightly: file yesterday's captures into the week's entry. Only the
+      // ZETTELS_WEEKDAY run, which completes the week, posts the notice.
+      const notify = weekday === env.ZETTELS_WEEKDAY;
       ctx.waitUntil(
         rollUpZettels(env, localDate(env)).then(
-          async ({ zettels, todos, archived, range, filed }) => {
+          async ({ zettels, todos, archived, lastWeek }) => {
             console.log(`zettel roll-up: ${zettels} zettels + ${todos} todos filed to Weekly Review.md, ${archived} inbox files archived`);
-            // Silent on a rerun that found the entry already written — the
-            // first run already announced it.
-            if (!archived) {
-              await dc.send(env.DISCORD_WEBHOOK_LEARNING, "📥 Weekly zettel roll-up: inbox was empty, nothing to file.");
-            } else if (filed) {
+            if (!notify) return;
+            if (!lastWeek) {
+              await dc.send(env.DISCORD_WEBHOOK_LEARNING, "📥 Weekly Review: nothing captured this week.");
+            } else {
               await dc.send(
                 env.DISCORD_WEBHOOK_LEARNING,
-                `📥 Weekly zettel roll-up: ${zettels} zettel${zettels === 1 ? "" : "s"} and ` +
-                  `${todos} todo${todos === 1 ? "" : "s"} (${range}) ` +
-                  `copied verbatim to Journal >> Weekly Review, ${archived} inbox file${archived === 1 ? "" : "s"} archived.`,
+                `📥 Weekly Review (${lastWeek.range}): ${lastWeek.zettels} zettel${lastWeek.zettels === 1 ? "" : "s"} and ` +
+                  `${lastWeek.todos} todo${lastWeek.todos === 1 ? "" : "s"}, copied verbatim to Journal >> Weekly Review.`,
               );
             }
           },
@@ -174,7 +172,7 @@ export default {
             console.error(e);
             await dc.send(
               env.DISCORD_WEBHOOK_LEARNING,
-              `⚠️ weekly zettel roll-up failed: ${e.message}`,
+              `⚠️ nightly zettel roll-up failed: ${e.message}`,
             );
           },
         ),
